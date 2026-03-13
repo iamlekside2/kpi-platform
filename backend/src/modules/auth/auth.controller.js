@@ -83,4 +83,56 @@ async function logout(req, res) {
   return res.json({ message: 'Logged out' });
 }
 
-module.exports = { register, login, refresh, logout };
+async function forgotPassword(req, res) {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+
+    const result = await authService.forgotPassword(email);
+
+    // In dev mode (no SMTP), include the reset link in the response
+    if (result.resetLink) {
+      return res.json({
+        message: 'If an account exists with that email, a reset link has been generated.',
+        resetLink: result.resetLink,
+      });
+    }
+
+    return res.json({
+      message: 'If an account exists with that email, a password reset link has been sent.',
+    });
+  } catch (err) {
+    console.error('Forgot password error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
+async function resetPassword(req, res) {
+  try {
+    const { token, password } = req.body;
+
+    if (!token || !password) {
+      return res.status(400).json({ error: 'Token and new password are required' });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters' });
+    }
+
+    await authService.resetPassword(token, password);
+    return res.json({ message: 'Password reset successfully. You can now log in.' });
+  } catch (err) {
+    if (err.name === 'TokenExpiredError') {
+      return res.status(400).json({ error: 'Reset link has expired. Please request a new one.' });
+    }
+    if (err.name === 'JsonWebTokenError' || err.message === 'Invalid token purpose') {
+      return res.status(400).json({ error: 'Invalid reset link.' });
+    }
+    console.error('Reset password error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
+module.exports = { register, login, refresh, logout, forgotPassword, resetPassword };

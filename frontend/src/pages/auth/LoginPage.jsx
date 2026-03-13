@@ -74,7 +74,12 @@ export default function LoginPage() {
               placeholder="Your password"
               required
             />
-            <div className="pt-2">
+            <div className="flex justify-end -mt-1 mb-2">
+              <Link to="/forgot-password" className="text-xs text-slate-500 hover:text-indigo-400 transition-colors">
+                Forgot password?
+              </Link>
+            </div>
+            <div className="pt-1">
               <Button type="submit" fullWidth disabled={submitting}>
                 {submitting ? 'Signing in...' : 'Sign In'}
               </Button>
