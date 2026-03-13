@@ -1,14 +1,21 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
 
 export default function ResetPasswordPage() {
+  const { isAuthenticated, logout } = useAuth();
   const [searchParams] = useSearchParams();
   const token = searchParams.get('token');
   const navigate = useNavigate();
+
+  // If user has a stale session, log them out — they're resetting their password
+  useEffect(() => {
+    if (isAuthenticated) logout();
+  }, [isAuthenticated]);
 
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');

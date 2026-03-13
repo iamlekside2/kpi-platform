@@ -28,17 +28,20 @@ function getNodemailerTransporter() {
 }
 
 async function sendEmail({ to, subject, html }) {
-  const fromAddress = process.env.EMAIL_FROM || 'KPI Platform <onboarding@resend.dev>';
+  // Resend free tier REQUIRES sending from onboarding@resend.dev
+  // Only use custom EMAIL_FROM if you've verified a domain on Resend
+  const resendFrom = process.env.RESEND_FROM || 'KPI Platform <onboarding@resend.dev>';
+  const smtpFrom = process.env.EMAIL_FROM || process.env.SMTP_USER || 'noreply@kpi-platform.com';
 
   // Try Resend first (works on Vercel serverless)
   const resend = getResend();
   if (resend) {
     try {
-      await resend.emails.send({ from: fromAddress, to, subject, html });
-      console.log(`[Resend] Email sent to ${to}: ${subject}`);
+      const result = await resend.emails.send({ from: resendFrom, to, subject, html });
+      console.log(`[Resend] Email sent to ${to}: ${subject}`, JSON.stringify(result));
       return true;
     } catch (err) {
-      console.error(`[Resend] Failed to send email to ${to}:`, err.message);
+      console.error(`[Resend] Failed to send email to ${to}:`, err.message, JSON.stringify(err));
       return false;
     }
   }
@@ -47,7 +50,7 @@ async function sendEmail({ to, subject, html }) {
   const transporter = getNodemailerTransporter();
   if (transporter) {
     try {
-      await transporter.sendMail({ from: fromAddress, to, subject, html });
+      await transporter.sendMail({ from: smtpFrom, to, subject, html });
       console.log(`[SMTP] Email sent to ${to}: ${subject}`);
       return true;
     } catch (err) {

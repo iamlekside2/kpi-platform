@@ -7,6 +7,7 @@ const COOKIE_OPTIONS = {
   secure: isProd,
   sameSite: isProd ? 'none' : 'lax', // 'none' needed for cross-domain on Vercel
   maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+  path: '/',
 };
 
 async function register(req, res) {
@@ -79,7 +80,13 @@ async function refresh(req, res) {
 }
 
 async function logout(req, res) {
-  res.clearCookie('refreshToken');
+  // Must pass the same options used when setting the cookie (except maxAge)
+  res.clearCookie('refreshToken', {
+    httpOnly: true,
+    secure: isProd,
+    sameSite: isProd ? 'none' : 'lax',
+    path: '/',
+  });
   return res.json({ message: 'Logged out' });
 }
 

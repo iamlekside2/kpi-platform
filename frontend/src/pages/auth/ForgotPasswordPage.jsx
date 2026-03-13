@@ -10,10 +10,11 @@ export default function ForgotPasswordPage() {
   const { isAuthenticated, logout } = useAuth();
   const [email, setEmail] = useState('');
 
-  // If user is logged in, log them out — they're here to reset password
+  // If user is logged in (e.g. stale session restored from cookie), log them out
+  // — they're here to reset password, not to use the app
   useEffect(() => {
     if (isAuthenticated) logout();
-  }, []);
+  }, [isAuthenticated]);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [submitting, setSubmitting] = useState(false);
