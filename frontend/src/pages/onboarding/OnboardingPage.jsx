@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
 
@@ -17,6 +18,7 @@ export default function OnboardingPage() {
   const [invitedEmails, setInvitedEmails] = useState([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const { loadOrgRole } = useAuth();
   const navigate = useNavigate();
 
   async function handleCreateOrg(e) {
@@ -75,7 +77,8 @@ export default function OnboardingPage() {
     }
   }
 
-  function handleFinish() {
+  async function handleFinish() {
+    await loadOrgRole(); // Refresh org data in AuthContext so Staff/Appraisals pages work
     navigate('/dashboard');
   }
 

@@ -28,6 +28,11 @@ export default function StaffPage() {
 
   const isAdmin = orgRole === 'admin';
 
+  // If activeOrg is not loaded yet, try loading it
+  useEffect(() => {
+    if (!activeOrg) loadOrgRole();
+  }, []);
+
   useEffect(() => {
     if (activeOrg) loadMembers();
   }, [activeOrg]);
