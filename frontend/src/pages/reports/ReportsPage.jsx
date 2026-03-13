@@ -7,6 +7,7 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
 import PageWrapper from '../../components/layout/PageWrapper';
+import Button from '../../components/ui/Button';
 
 // Grade colours
 const GRADE_COLORS = { A: '#10b981', B: '#3b82f6', C: '#f59e0b', D: '#ef4444' };
@@ -83,6 +84,7 @@ export default function ReportsPage() {
   const { activeOrg } = useAuth();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [exportingKPIs, setExportingKPIs] = useState(false);
 
   useEffect(() => {
     async function loadAnalytics() {
@@ -98,6 +100,26 @@ export default function ReportsPage() {
     }
     loadAnalytics();
   }, [activeOrg]);
+
+  async function handleExportKPIs() {
+    if (!activeOrg?.id) return;
+    setExportingKPIs(true);
+    try {
+      const response = await api.get(`/exports/org/${activeOrg.id}/kpis/excel`, { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `kpis-${new Date().toISOString().slice(0, 10)}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('KPI Excel export failed:', err);
+    } finally {
+      setExportingKPIs(false);
+    }
+  }
 
   if (loading) {
     return (
@@ -159,7 +181,12 @@ export default function ReportsPage() {
   return (
     <PageWrapper>
       <div>
-        <h2 className="text-2xl font-bold text-white mb-6">Reports & Analytics</h2>
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-2xl font-bold text-white">Reports & Analytics</h2>
+          <Button variant="outline" onClick={handleExportKPIs} disabled={exportingKPIs}>
+            {exportingKPIs ? 'Exporting...' : 'Export KPIs'}
+          </Button>
+        </div>
 
         {/* ── Summary Stats ── */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">

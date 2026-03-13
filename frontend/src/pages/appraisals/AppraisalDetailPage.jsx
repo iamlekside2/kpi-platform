@@ -38,6 +38,7 @@ export default function AppraisalDetailPage() {
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState('');
   const [activeSection, setActiveSection] = useState(null); // set after load based on role
+  const [exporting, setExporting] = useState(false);
 
   // Local form state
   const [selfAssessment, setSelfAssessment] = useState({});
@@ -203,6 +204,25 @@ export default function AppraisalDetailPage() {
     }
   }
 
+  async function handleExportPDF() {
+    setExporting(true);
+    try {
+      const response = await api.get(`/exports/appraisals/${id}/pdf`, { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `appraisal-${appraisal.employee?.name || 'report'}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('PDF export failed:', err);
+    } finally {
+      setExporting(false);
+    }
+  }
+
   function showSuccess(msg) {
     setSuccess(msg);
     setTimeout(() => setSuccess(''), 3000);
@@ -252,14 +272,19 @@ export default function AppraisalDetailPage() {
               </span>
             </div>
           </div>
-          {canEditEmployee && (
-            <div className="flex gap-2">
-              <Button variant="secondary" onClick={handleSaveDraft} disabled={saving}>
-                {saving ? 'Saving...' : 'Save Draft'}
-              </Button>
-              <Button onClick={handleSubmit} disabled={saving}>Submit</Button>
-            </div>
-          )}
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={handleExportPDF} disabled={exporting}>
+              {exporting ? 'Exporting...' : 'Download PDF'}
+            </Button>
+            {canEditEmployee && (
+              <>
+                <Button variant="secondary" onClick={handleSaveDraft} disabled={saving}>
+                  {saving ? 'Saving...' : 'Save Draft'}
+                </Button>
+                <Button onClick={handleSubmit} disabled={saving}>Submit</Button>
+              </>
+            )}
+          </div>
         </div>
 
         {/* Success message */}

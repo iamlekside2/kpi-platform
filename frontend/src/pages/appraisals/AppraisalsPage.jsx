@@ -40,6 +40,7 @@ export default function AppraisalsPage() {
   const [departments, setDepartments] = useState([]);
   const [members, setMembers] = useState([]);
   const [selectedEmployee, setSelectedEmployee] = useState('');
+  const [exportingExcel, setExportingExcel] = useState(false);
   const navigate = useNavigate();
 
   const canCreate = orgRole === 'admin' || orgRole === 'lead';
@@ -111,6 +112,26 @@ export default function AppraisalsPage() {
     }
   }
 
+  async function handleExportExcel() {
+    if (!activeOrg?.id) return;
+    setExportingExcel(true);
+    try {
+      const response = await api.get(`/exports/org/${activeOrg.id}/appraisals/excel`, { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `appraisals-${new Date().toISOString().slice(0, 10)}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Excel export failed:', err);
+    } finally {
+      setExportingExcel(false);
+    }
+  }
+
   return (
     <PageWrapper>
       <div className="max-w-4xl">
@@ -123,9 +144,16 @@ export default function AppraisalsPage() {
                 : 'Create and manage employee performance reviews'}
             </p>
           </div>
-          {canCreate && (
-            <Button onClick={openCreateModal}>+ New Appraisal</Button>
-          )}
+          <div className="flex gap-2">
+            {canCreate && (
+              <Button variant="outline" onClick={handleExportExcel} disabled={exportingExcel}>
+                {exportingExcel ? 'Exporting...' : 'Export Excel'}
+              </Button>
+            )}
+            {canCreate && (
+              <Button onClick={openCreateModal}>+ New Appraisal</Button>
+            )}
+          </div>
         </div>
 
         {/* Create Modal */}
