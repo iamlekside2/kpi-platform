@@ -114,8 +114,7 @@ function verifyResetToken(token) {
 async function forgotPassword(email) {
   const user = await prisma.user.findUnique({ where: { email } });
   if (!user) {
-    // Don't reveal whether email exists — return silently
-    return { sent: true };
+    throw new Error('No account found with this email');
   }
 
   const resetToken = generateResetToken(user);

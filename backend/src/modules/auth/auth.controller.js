@@ -92,18 +92,13 @@ async function forgotPassword(req, res) {
 
     const result = await authService.forgotPassword(email);
 
-    // In dev mode (no SMTP), include the reset link in the response
-    if (result.resetLink) {
-      return res.json({
-        message: 'If an account exists with that email, a reset link has been generated.',
-        resetLink: result.resetLink,
-      });
-    }
-
     return res.json({
-      message: 'If an account exists with that email, a password reset link has been sent.',
+      message: 'A password reset link has been sent to your email.',
     });
   } catch (err) {
+    if (err.message === 'No account found with this email') {
+      return res.status(404).json({ error: err.message });
+    }
     console.error('Forgot password error:', err);
     return res.status(500).json({ error: 'Internal server error' });
   }

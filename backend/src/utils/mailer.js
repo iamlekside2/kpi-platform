@@ -1,12 +1,22 @@
-const nodemailer = require('nodemailer');
+// Supports both Resend (recommended for Vercel) and Nodemailer SMTP
+// Set RESEND_API_KEY env var to use Resend, or SMTP_HOST for Nodemailer
 
-let transporter = null;
+let resendClient = null;
 
-function getTransporter() {
+function getResend() {
+  if (!process.env.RESEND_API_KEY) return null;
+  if (resendClient) return resendClient;
+
+  const { Resend } = require('resend');
+  resendClient = new Resend(process.env.RESEND_API_KEY);
+  return resendClient;
+}
+
+function getNodemailerTransporter() {
   if (!process.env.SMTP_HOST) return null;
-  if (transporter) return transporter;
 
-  transporter = nodemailer.createTransport({
+  const nodemailer = require('nodemailer');
+  return nodemailer.createTransport({
     host: process.env.SMTP_HOST,
     port: parseInt(process.env.SMTP_PORT || '587'),
     secure: process.env.SMTP_SECURE === 'true',
@@ -15,30 +25,39 @@ function getTransporter() {
       pass: process.env.SMTP_PASS,
     },
   });
-
-  return transporter;
 }
 
 async function sendEmail({ to, subject, html }) {
-  const t = getTransporter();
-  if (!t) {
-    console.log(`[DEV] Email skipped (no SMTP) — To: ${to}, Subject: ${subject}`);
-    return false;
+  const fromAddress = process.env.EMAIL_FROM || 'KPI Platform <onboarding@resend.dev>';
+
+  // Try Resend first (works on Vercel serverless)
+  const resend = getResend();
+  if (resend) {
+    try {
+      await resend.emails.send({ from: fromAddress, to, subject, html });
+      console.log(`[Resend] Email sent to ${to}: ${subject}`);
+      return true;
+    } catch (err) {
+      console.error(`[Resend] Failed to send email to ${to}:`, err.message);
+      return false;
+    }
   }
 
-  try {
-    await t.sendMail({
-      from: process.env.SMTP_FROM || 'KPI Platform <noreply@kpiplatform.com>',
-      to,
-      subject,
-      html,
-    });
-    console.log(`Email sent to ${to}: ${subject}`);
-    return true;
-  } catch (err) {
-    console.error(`Failed to send email to ${to}:`, err.message);
-    return false;
+  // Fallback to Nodemailer SMTP
+  const transporter = getNodemailerTransporter();
+  if (transporter) {
+    try {
+      await transporter.sendMail({ from: fromAddress, to, subject, html });
+      console.log(`[SMTP] Email sent to ${to}: ${subject}`);
+      return true;
+    } catch (err) {
+      console.error(`[SMTP] Failed to send email to ${to}:`, err.message);
+      return false;
+    }
   }
+
+  console.log(`[DEV] Email skipped (no provider) — To: ${to}, Subject: ${subject}`);
+  return false;
 }
 
 // ── Email Templates ──────────────────────────────────────────
