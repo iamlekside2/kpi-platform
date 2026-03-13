@@ -103,11 +103,11 @@ export default function DashboardPage() {
               <div className="flex items-center gap-4">
                 {/* Stats */}
                 <div className="flex gap-4">
-                  <div className="flex flex-col items-center px-4 py-2 bg-slate-900/60 border border-white/[0.06] rounded-xl">
+                  <div className="flex flex-col items-center px-4 py-2 bg-surface-900/60 border border-white/[0.06] rounded-xl">
                     <span className="text-lg font-bold text-white tabular-nums">{kpis.length}</span>
                     <span className="text-[10px] uppercase tracking-wider text-slate-500 font-medium">KPIs</span>
                   </div>
-                  <div className="flex flex-col items-center px-4 py-2 bg-slate-900/60 border border-white/[0.06] rounded-xl">
+                  <div className="flex flex-col items-center px-4 py-2 bg-surface-900/60 border border-white/[0.06] rounded-xl">
                     <span className="text-lg font-bold text-white tabular-nums">{activeOrg.members?.length || 0}</span>
                     <span className="text-[10px] uppercase tracking-wider text-slate-500 font-medium">Members</span>
                   </div>
@@ -131,7 +131,7 @@ export default function DashboardPage() {
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: 20, scale: 0.95 }}
                     transition={{ duration: 0.2 }}
-                    className="bg-slate-900 border border-white/[0.06] rounded-2xl p-6 w-full max-w-md shadow-2xl shadow-black/30"
+                    className="bg-surface-900 border border-white/[0.06] rounded-2xl p-6 w-full max-w-md shadow-2xl shadow-black/30"
                     onClick={(e) => e.stopPropagation()}
                   >
                     <h3 className="text-lg font-bold text-white mb-4">Add Custom KPI</h3>

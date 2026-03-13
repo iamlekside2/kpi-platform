@@ -36,7 +36,7 @@ export default function KPICard({ kpi, onUpdate, onDelete }) {
       animate={{ opacity: 1, y: 0 }}
       whileHover={{ y: -2 }}
       transition={{ duration: 0.2 }}
-      className="group bg-slate-900/60 backdrop-blur-sm border border-white/[0.06] rounded-xl p-5 hover:border-white/10 hover:shadow-lg hover:shadow-accent-500/5 transition-all duration-300"
+      className="group bg-surface-900/60 backdrop-blur-sm border border-white/[0.06] rounded-xl p-5 hover:border-white/10 hover:shadow-lg hover:shadow-accent-500/5 transition-all duration-300"
     >
       {/* Header */}
       <div className="flex items-center justify-between mb-3">

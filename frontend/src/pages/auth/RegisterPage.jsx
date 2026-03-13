@@ -36,7 +36,7 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-950 px-4">
+    <div className="min-h-screen flex items-center justify-center bg-surface-950 px-4">
       {/* Background glow */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-accent-500/5 rounded-full blur-3xl" />
@@ -48,7 +48,7 @@ export default function RegisterPage() {
         transition={{ duration: 0.5, ease: 'easeOut' }}
         className="w-full max-w-md relative"
       >
-        <div className="bg-slate-900/80 backdrop-blur-xl border border-white/[0.06] rounded-2xl p-8 shadow-2xl shadow-black/20">
+        <div className="bg-surface-900/80 backdrop-blur-xl border border-white/[0.06] rounded-2xl p-8 shadow-2xl shadow-black/20">
           <div className="text-center mb-8">
             <h1 className="text-2xl font-bold text-white mb-2">Create Account</h1>
             <p className="text-sm text-slate-400">Get started with KPI Platform</p>

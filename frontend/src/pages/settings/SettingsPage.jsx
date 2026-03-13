@@ -123,7 +123,7 @@ export default function SettingsPage() {
         <h2 className="text-2xl font-bold text-white mb-6">Settings</h2>
 
         {/* Tabs */}
-        <div className="flex gap-1 p-1 bg-slate-900/60 border border-white/[0.06] rounded-xl mb-6 w-fit">
+        <div className="flex gap-1 p-1 bg-surface-900/60 border border-white/[0.06] rounded-xl mb-6 w-fit">
           {TABS.map((t) => (
             <button
               key={t.key}
@@ -179,7 +179,7 @@ export default function SettingsPage() {
                   disabled={!isAdmin}
                   className={`group relative w-12 h-12 rounded-xl transition-all duration-200
                     ${themeColor === name
-                      ? 'ring-2 ring-white ring-offset-2 ring-offset-slate-950 scale-110'
+                      ? 'ring-2 ring-white ring-offset-2 ring-offset-surface-950 scale-110'
                       : 'hover:scale-105'}
                     ${!isAdmin ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
                   style={{ backgroundColor: colors[500] }}
@@ -194,9 +194,9 @@ export default function SettingsPage() {
               ))}
             </div>
 
-            <div className="mt-6 p-4 bg-slate-900/60 border border-white/[0.06] rounded-xl">
+            <div className="mt-6 p-4 bg-surface-900/60 border border-white/[0.06] rounded-xl">
               <p className="text-xs text-slate-500 mb-3">Preview</p>
-              <div className="flex items-center gap-3 flex-wrap">
+              <div className="flex items-center gap-3 flex-wrap mb-4">
                 <span className="px-4 py-2 bg-accent-500 text-white text-sm font-semibold rounded-lg shadow-lg shadow-accent-500/20">
                   Primary Button
                 </span>
@@ -207,6 +207,14 @@ export default function SettingsPage() {
                 <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-accent-500/10 text-accent-400 border border-accent-500/20">
                   Badge
                 </span>
+              </div>
+              <div className="flex gap-2">
+                <div className="flex-1 h-12 rounded-lg bg-surface-950 border border-white/[0.06] flex items-center justify-center">
+                  <span className="text-[10px] text-slate-500 uppercase tracking-wider">Page BG</span>
+                </div>
+                <div className="flex-1 h-12 rounded-lg bg-surface-900 border border-white/[0.06] flex items-center justify-center">
+                  <span className="text-[10px] text-slate-500 uppercase tracking-wider">Card BG</span>
+                </div>
               </div>
             </div>
 
@@ -228,7 +236,7 @@ export default function SettingsPage() {
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: i * 0.05 }}
-                    className={`bg-slate-900/60 border rounded-xl p-5 transition-all
+                    className={`bg-surface-900/60 border rounded-xl p-5 transition-all
                       ${connected
                         ? 'border-emerald-500/30 shadow-sm shadow-emerald-500/5'
                         : 'border-white/[0.06] hover:border-white/10'}`}
@@ -280,7 +288,7 @@ export default function SettingsPage() {
                     initial={{ opacity: 0, y: 20, scale: 0.95 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: 20, scale: 0.95 }}
-                    className="bg-slate-900 border border-white/[0.06] rounded-2xl p-6 w-full max-w-md shadow-2xl"
+                    className="bg-surface-900 border border-white/[0.06] rounded-2xl p-6 w-full max-w-md shadow-2xl"
                     onClick={(e) => e.stopPropagation()}
                   >
                     <h3 className="text-lg font-bold text-white mb-4">
@@ -320,7 +328,7 @@ export default function SettingsPage() {
                   initial={{ opacity: 0, y: 6 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.03 }}
-                  className="flex items-center justify-between p-4 bg-slate-900/60 border border-white/[0.06] rounded-xl hover:border-white/10 transition-all"
+                  className="flex items-center justify-between p-4 bg-surface-900/60 border border-white/[0.06] rounded-xl hover:border-white/10 transition-all"
                 >
                   <div>
                     <span className="text-sm font-semibold text-white">{kpi.name}</span>
@@ -368,7 +376,7 @@ export default function SettingsPage() {
                 <p className="text-sm text-slate-400">No sync history yet.</p>
               </div>
             ) : (
-              <div className="bg-slate-900/60 border border-white/[0.06] rounded-xl overflow-hidden">
+              <div className="bg-surface-900/60 border border-white/[0.06] rounded-xl overflow-hidden">
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-white/[0.06]">

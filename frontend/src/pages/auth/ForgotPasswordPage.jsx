@@ -29,14 +29,14 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-950 px-4">
+    <div className="min-h-screen flex items-center justify-center bg-surface-950 px-4">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
         className="w-full max-w-md relative"
       >
-        <div className="bg-slate-900 border border-white/[0.06] rounded-2xl p-8 shadow-2xl shadow-black/20">
+        <div className="bg-surface-900 border border-white/[0.06] rounded-2xl p-8 shadow-2xl shadow-black/20">
           <div className="text-center mb-8">
             <div className="w-14 h-14 rounded-2xl bg-accent-500/10 border border-accent-500/20 flex items-center justify-center text-2xl mx-auto mb-4">
               🔑

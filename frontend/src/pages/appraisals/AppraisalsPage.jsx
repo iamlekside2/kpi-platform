@@ -142,7 +142,7 @@ export default function AppraisalsPage() {
                 initial={{ opacity: 0, y: 20, scale: 0.95 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: 20, scale: 0.95 }}
-                className="bg-slate-900 border border-white/[0.06] rounded-2xl p-6 w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto"
+                className="bg-surface-900 border border-white/[0.06] rounded-2xl p-6 w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto"
                 onClick={(e) => e.stopPropagation()}
               >
                 <h3 className="text-lg font-bold text-white mb-1">New Performance Appraisal</h3>
@@ -239,7 +239,7 @@ export default function AppraisalsPage() {
                 transition={{ delay: i * 0.04 }}
                 whileHover={{ scale: 1.005 }}
                 onClick={() => navigate(`/appraisals/${a.id}`)}
-                className="flex items-center justify-between p-4 bg-slate-900/60 border border-white/[0.06] rounded-xl hover:border-white/10 cursor-pointer transition-all"
+                className="flex items-center justify-between p-4 bg-surface-900/60 border border-white/[0.06] rounded-xl hover:border-white/10 cursor-pointer transition-all"
               >
                 <div className="flex items-center gap-4">
                   <div className="w-10 h-10 rounded-xl bg-accent-500/10 border border-accent-500/20 flex items-center justify-center text-lg">

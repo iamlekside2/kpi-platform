@@ -17,7 +17,7 @@ export default function App() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+      <div className="min-h-screen bg-surface-950 flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
           <div className="w-8 h-8 border-2 border-accent-500 border-t-transparent rounded-full animate-spin" />
           <span className="text-sm text-slate-400">Loading...</span>

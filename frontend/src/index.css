@@ -4,6 +4,8 @@
   --color-accent-300: var(--accent-300);
   --color-accent-400: var(--accent-400);
   --color-accent-500: var(--accent-500);
+  --color-surface-950: var(--surface-950);
+  --color-surface-900: var(--surface-900);
 }
 
 :root {
@@ -11,6 +13,8 @@
   --accent-300: #a5b4fc;
   --accent-400: #818cf8;
   --accent-500: #6366f1;
+  --surface-950: #080a1a;
+  --surface-900: #0f1129;
 }
 
 body {

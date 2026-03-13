@@ -122,7 +122,7 @@ export default function StaffPage() {
         {/* Role legend */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
           {Object.entries(ROLE_CONFIG).map(([key, cfg]) => (
-            <div key={key} className="p-3 bg-slate-900/60 border border-white/[0.06] rounded-xl">
+            <div key={key} className="p-3 bg-surface-900/60 border border-white/[0.06] rounded-xl">
               <div className="flex items-center gap-2 mb-1">
                 <span className="text-lg">{cfg.icon}</span>
                 <span className={`text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${cfg.color}`}>
@@ -159,7 +159,7 @@ export default function StaffPage() {
                 initial={{ opacity: 0, y: 20, scale: 0.95 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: 20, scale: 0.95 }}
-                className="bg-slate-900 border border-white/[0.06] rounded-2xl p-6 w-full max-w-md shadow-2xl"
+                className="bg-surface-900 border border-white/[0.06] rounded-2xl p-6 w-full max-w-md shadow-2xl"
                 onClick={(e) => e.stopPropagation()}
               >
                 <h3 className="text-lg font-bold text-white mb-1">Add Staff Member</h3>
@@ -245,7 +245,7 @@ export default function StaffPage() {
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.03 }}
-                  className="flex items-center justify-between p-4 bg-slate-900/60 border border-white/[0.06] rounded-xl hover:border-white/10 transition-all"
+                  className="flex items-center justify-between p-4 bg-surface-900/60 border border-white/[0.06] rounded-xl hover:border-white/10 transition-all"
                 >
                   <div className="flex items-center gap-4">
                     <div className="w-10 h-10 rounded-full bg-accent-500/10 border border-accent-500/20 flex items-center justify-center text-lg">

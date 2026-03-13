@@ -281,7 +281,7 @@ export default function AppraisalDetailPage() {
         )}
 
         {/* Section tabs */}
-        <div className="flex gap-1 p-1 bg-slate-900/60 border border-white/[0.06] rounded-xl mb-6 overflow-x-auto">
+        <div className="flex gap-1 p-1 bg-surface-900/60 border border-white/[0.06] rounded-xl mb-6 overflow-x-auto">
           {SECTIONS.map((s) => (
             <button
               key={s.key}
@@ -308,7 +308,7 @@ export default function AppraisalDetailPage() {
             )}
 
             {/* A1 Self-assessment questions */}
-            <div className="bg-slate-900/60 border border-white/[0.06] rounded-xl p-6">
+            <div className="bg-surface-900/60 border border-white/[0.06] rounded-xl p-6">
               <h3 className="text-sm font-bold text-white mb-1 flex items-center gap-2">
                 <span className="text-accent-400">A1</span> Discussion Points
               </h3>
@@ -332,7 +332,7 @@ export default function AppraisalDetailPage() {
             </div>
 
             {/* Self-rating attributes */}
-            <div className="bg-slate-900/60 border border-white/[0.06] rounded-xl p-6">
+            <div className="bg-surface-900/60 border border-white/[0.06] rounded-xl p-6">
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h3 className="text-sm font-bold text-white flex items-center gap-2">
@@ -382,7 +382,7 @@ export default function AppraisalDetailPage() {
               </div>
             )}
 
-            <div className="bg-slate-900/60 border border-white/[0.06] rounded-xl p-6">
+            <div className="bg-surface-900/60 border border-white/[0.06] rounded-xl p-6">
               <h3 className="text-sm font-bold text-white mb-1 flex items-center gap-2">
                 {appraisal?.department === 'sales' ? '💰' : '💻'} {deptLabel}
               </h3>
@@ -422,7 +422,7 @@ export default function AppraisalDetailPage() {
               </div>
             )}
 
-            <div className="bg-slate-900/60 border border-white/[0.06] rounded-xl p-6">
+            <div className="bg-surface-900/60 border border-white/[0.06] rounded-xl p-6">
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h3 className="text-sm font-bold text-white flex items-center gap-2">
@@ -478,7 +478,7 @@ export default function AppraisalDetailPage() {
             </div>
 
             {/* Unit Head Comment */}
-            <div className="bg-slate-900/60 border border-white/[0.06] rounded-xl p-6">
+            <div className="bg-surface-900/60 border border-white/[0.06] rounded-xl p-6">
               <h3 className="text-sm font-bold text-white mb-3">Comment by Unit Head</h3>
               <textarea
                 rows={4}
@@ -499,7 +499,7 @@ export default function AppraisalDetailPage() {
 
             {/* Admin Comment (visible to admin viewing section 2) */}
             {isAdmin && (
-              <div className="bg-slate-900/60 border border-white/[0.06] rounded-xl p-6">
+              <div className="bg-surface-900/60 border border-white/[0.06] rounded-xl p-6">
                 <h3 className="text-sm font-bold text-white mb-3">Comment by Head, Administration</h3>
                 <textarea
                   rows={4}
@@ -525,7 +525,7 @@ export default function AppraisalDetailPage() {
         {activeSection === 'section3' && canSeeSection3 && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
             {/* MD Comment */}
-            <div className="bg-slate-900/60 border border-white/[0.06] rounded-xl p-6">
+            <div className="bg-surface-900/60 border border-white/[0.06] rounded-xl p-6">
               <h3 className="text-sm font-bold text-white mb-1 flex items-center gap-2">
                 🏢 Managing Director&apos;s Overall Comments
               </h3>
@@ -542,7 +542,7 @@ export default function AppraisalDetailPage() {
             </div>
 
             {/* MD Score */}
-            <div className="bg-slate-900/60 border border-white/[0.06] rounded-xl p-6">
+            <div className="bg-surface-900/60 border border-white/[0.06] rounded-xl p-6">
               <h3 className="text-sm font-bold text-white mb-1 flex items-center gap-2">
                 🎯 MD Performance Score
               </h3>
@@ -583,7 +583,7 @@ export default function AppraisalDetailPage() {
             </div>
 
             {/* Scoring breakdown & weights */}
-            <div className="bg-slate-900/60 border border-white/[0.06] rounded-xl p-6">
+            <div className="bg-surface-900/60 border border-white/[0.06] rounded-xl p-6">
               <h3 className="text-sm font-bold text-white mb-4 flex items-center gap-2">
                 📊 Score Breakdown & Weights
               </h3>

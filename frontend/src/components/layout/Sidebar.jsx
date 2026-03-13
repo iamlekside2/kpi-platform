@@ -13,7 +13,7 @@ export default function Sidebar() {
   const { orgRole } = useAuth();
   const links = allLinks.filter(link => !link.roles || link.roles.includes(orgRole));
   return (
-    <aside className="w-64 min-h-screen bg-slate-950 border-r border-white/[0.06] flex flex-col">
+    <aside className="w-64 min-h-screen bg-surface-950 border-r border-white/[0.06] flex flex-col">
       {/* Brand */}
       <div className="px-6 py-6 border-b border-white/[0.06]">
         <motion.h2

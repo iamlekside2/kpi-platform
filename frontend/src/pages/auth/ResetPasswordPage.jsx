@@ -44,13 +44,13 @@ export default function ResetPasswordPage() {
 
   if (!token) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-950 px-4">
+      <div className="min-h-screen flex items-center justify-center bg-surface-950 px-4">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           className="w-full max-w-md relative"
         >
-          <div className="bg-slate-900 border border-white/[0.06] rounded-2xl p-8 shadow-2xl shadow-black/20 text-center">
+          <div className="bg-surface-900 border border-white/[0.06] rounded-2xl p-8 shadow-2xl shadow-black/20 text-center">
             <h1 className="text-xl font-bold text-white mb-2">Invalid Reset Link</h1>
             <p className="text-sm text-slate-400 mb-6">
               This password reset link is invalid or missing. Please request a new one.
@@ -68,14 +68,14 @@ export default function ResetPasswordPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-950 px-4">
+    <div className="min-h-screen flex items-center justify-center bg-surface-950 px-4">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
         className="w-full max-w-md relative"
       >
-        <div className="bg-slate-900 border border-white/[0.06] rounded-2xl p-8 shadow-2xl shadow-black/20">
+        <div className="bg-surface-900 border border-white/[0.06] rounded-2xl p-8 shadow-2xl shadow-black/20">
           <div className="text-center mb-8">
             <h1 className="text-2xl font-bold text-white mb-2">Set New Password</h1>
             <p className="text-sm text-slate-400">

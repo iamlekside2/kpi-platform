@@ -4,7 +4,7 @@ import Navbar from './Navbar';
 
 export default function PageWrapper({ children }) {
   return (
-    <div className="flex min-h-screen bg-slate-950 text-slate-100">
+    <div className="flex min-h-screen bg-surface-950 text-slate-100">
       <Sidebar />
       <div className="flex-1 flex flex-col min-h-screen">
         <Navbar />
