@@ -12,6 +12,7 @@ const kpiRoutes = require('./modules/kpis/kpis.routes');
 const integrationRoutes = require('./modules/integrations/integrations.routes');
 const syncRoutes = require('./modules/sync/sync.routes');
 const appraisalRoutes = require('./modules/appraisals/appraisals.routes');
+const userRoutes = require('./modules/users/users.routes');
 
 // Middleware imports
 const { authenticate } = require('./modules/auth/auth.middleware');
@@ -51,6 +52,7 @@ app.use('/api/kpis', authenticate, kpiRoutes);
 app.use('/api/integrations', authenticate, integrationRoutes);
 app.use('/api/sync', authenticate, syncRoutes);
 app.use('/api/appraisals', authenticate, appraisalRoutes);
+app.use('/api/users/me', authenticate, userRoutes);
 
 // Global error handler
 app.use((err, req, res, next) => {

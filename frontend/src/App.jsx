@@ -11,6 +11,7 @@ import SettingsPage from './pages/settings/SettingsPage';
 import AppraisalsPage from './pages/appraisals/AppraisalsPage';
 import AppraisalDetailPage from './pages/appraisals/AppraisalDetailPage';
 import StaffPage from './pages/staff/StaffPage';
+import ProfilePage from './pages/profile/ProfilePage';
 
 export default function App() {
   const { isAuthenticated, loading } = useAuth();
@@ -41,6 +42,7 @@ export default function App() {
       <Route path="/staff" element={<ProtectedRoute><StaffPage /></ProtectedRoute>} />
       <Route path="/appraisals" element={<ProtectedRoute><AppraisalsPage /></ProtectedRoute>} />
       <Route path="/appraisals/:id" element={<ProtectedRoute><AppraisalDetailPage /></ProtectedRoute>} />
+      <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
 
       {/* Default redirect */}
       <Route path="*" element={<Navigate to={isAuthenticated ? '/dashboard' : '/login'} />} />
