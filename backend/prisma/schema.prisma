@@ -8,27 +8,29 @@ datasource db {
 }
 
 model User {
-  id                  String       @id @default(uuid())
-  email               String       @unique
+  id                  String         @id @default(uuid())
+  email               String         @unique
   name                String
   password            String
   orgs                OrgMember[]
-  employeeAppraisals  Appraisal[]  @relation("EmployeeAppraisals")
-  reviewerAppraisals  Appraisal[]  @relation("ReviewerAppraisals")
-  createdAt           DateTime     @default(now())
+  employeeAppraisals  Appraisal[]    @relation("EmployeeAppraisals")
+  reviewerAppraisals  Appraisal[]    @relation("ReviewerAppraisals")
+  notifications       Notification[]
+  createdAt           DateTime       @default(now())
 }
 
 model Organisation {
-  id           String        @id @default(uuid())
-  name         String
-  industry     String        @default("")
-  themeColor   String        @default("indigo")
-  members      OrgMember[]
-  kpis         KPI[]
-  integrations Integration[]
-  syncLogs     SyncLog[]
-  appraisals   Appraisal[]
-  createdAt    DateTime      @default(now())
+  id            String         @id @default(uuid())
+  name          String
+  industry      String         @default("")
+  themeColor    String         @default("indigo")
+  members       OrgMember[]
+  kpis          KPI[]
+  integrations  Integration[]
+  syncLogs      SyncLog[]
+  appraisals    Appraisal[]
+  notifications Notification[]
+  createdAt     DateTime       @default(now())
 }
 
 model OrgMember {
@@ -129,4 +131,20 @@ model Appraisal {
 
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
+}
+
+// ── Notifications ────────────────────────────────────────────
+
+model Notification {
+  id        String       @id @default(uuid())
+  type      String       // appraisal_created | appraisal_submitted | appraisal_reviewed | appraisal_completed | member_invited
+  title     String
+  message   String
+  read      Boolean      @default(false)
+  link      String       @default("")
+  userId    String
+  user      User         @relation(fields: [userId], references: [id])
+  orgId     String
+  org       Organisation @relation(fields: [orgId], references: [id])
+  createdAt DateTime     @default(now())
 }

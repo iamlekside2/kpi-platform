@@ -13,6 +13,7 @@ import AppraisalDetailPage from './pages/appraisals/AppraisalDetailPage';
 import StaffPage from './pages/staff/StaffPage';
 import ProfilePage from './pages/profile/ProfilePage';
 import ReportsPage from './pages/reports/ReportsPage';
+import NotificationsPage from './pages/notifications/NotificationsPage';
 
 export default function App() {
   const { isAuthenticated, loading } = useAuth();
@@ -45,6 +46,7 @@ export default function App() {
       <Route path="/appraisals/:id" element={<ProtectedRoute><AppraisalDetailPage /></ProtectedRoute>} />
       <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
       <Route path="/reports" element={<ProtectedRoute><ReportsPage /></ProtectedRoute>} />
+      <Route path="/notifications" element={<ProtectedRoute><NotificationsPage /></ProtectedRoute>} />
 
       {/* Default redirect */}
       <Route path="*" element={<Navigate to={isAuthenticated ? '/dashboard' : '/login'} />} />

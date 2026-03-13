@@ -1,5 +1,6 @@
 const service = require('./appraisals.service');
 const prisma = require('../../config/db');
+const { notifyAppraisalCreated, notifyAppraisalSubmitted, notifyAppraisalReviewed, notifyAppraisalCompleted } = require('../notifications/notify');
 
 // ── Helper: get user's org role ──
 async function getUserRole(userId, orgId) {
@@ -28,6 +29,7 @@ async function create(req, res) {
       req.body.employeeId || req.user.userId, // admin can create for another employee
       req.body
     );
+    notifyAppraisalCreated(appraisal).catch(() => {});
     res.status(201).json(appraisal);
   } catch (err) {
     console.error('Create appraisal error:', err);
@@ -121,6 +123,7 @@ async function submit(req, res) {
     }
 
     const updated = await service.submitAppraisal(req.params.id);
+    notifyAppraisalSubmitted(updated).catch(() => {});
     res.json(updated);
   } catch (err) {
     console.error('Submit appraisal error:', err);
@@ -143,6 +146,7 @@ async function updateUnitHead(req, res) {
     }
 
     const updated = await service.updateUnitHeadReview(req.params.id, req.user.userId, req.body);
+    notifyAppraisalReviewed(updated, 'unit_head').catch(() => {});
     res.json(updated);
   } catch (err) {
     console.error('Unit head review error:', err);
@@ -165,6 +169,9 @@ async function updateAdmin(req, res) {
     }
 
     const updated = await service.updateAdminComment(req.params.id, req.body.adminComment);
+    // Need to fetch full appraisal for notification (updateAdminComment returns minimal)
+    const full = await service.getAppraisalById(req.params.id);
+    notifyAppraisalReviewed(full, 'admin').catch(() => {});
     res.json(updated);
   } catch (err) {
     console.error('Admin comment error:', err);
@@ -187,6 +194,7 @@ async function updateMd(req, res) {
     }
 
     const updated = await service.updateMdComment(req.params.id, req.body.mdComment, req.body.mdScore);
+    notifyAppraisalCompleted(updated).catch(() => {});
     res.json(updated);
   } catch (err) {
     console.error('MD comment error:', err);

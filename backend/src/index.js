@@ -14,6 +14,7 @@ const syncRoutes = require('./modules/sync/sync.routes');
 const appraisalRoutes = require('./modules/appraisals/appraisals.routes');
 const userRoutes = require('./modules/users/users.routes');
 const analyticsRoutes = require('./modules/analytics/analytics.routes');
+const notificationRoutes = require('./modules/notifications/notifications.routes');
 
 // Middleware imports
 const { authenticate } = require('./modules/auth/auth.middleware');
@@ -55,6 +56,7 @@ app.use('/api/sync', authenticate, syncRoutes);
 app.use('/api/appraisals', authenticate, appraisalRoutes);
 app.use('/api/users/me', authenticate, userRoutes);
 app.use('/api/analytics', authenticate, analyticsRoutes);
+app.use('/api/notifications', authenticate, notificationRoutes);
 
 // Global error handler
 app.use((err, req, res, next) => {
