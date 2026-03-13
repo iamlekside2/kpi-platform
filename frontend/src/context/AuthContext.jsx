@@ -26,11 +26,18 @@ export function AuthProvider({ children }) {
 
   // Try to restore session on mount via refresh token
   // Uses raw axios (not the api instance) to avoid interceptor loops
+  // Skips restore if user explicitly logged out (flag in localStorage)
   useEffect(() => {
     if (didRestore.current) return;
     didRestore.current = true;
 
     async function restoreSession() {
+      // If user explicitly logged out, don't auto-restore
+      if (localStorage.getItem('loggedOut') === 'true') {
+        setLoading(false);
+        return;
+      }
+
       try {
         const apiBase = import.meta.env.VITE_API_URL || '/api';
         const { data } = await axios.post(`${apiBase}/auth/refresh`, {}, { withCredentials: true });
@@ -57,6 +64,7 @@ export function AuthProvider({ children }) {
 
   const login = useCallback(async (email, password) => {
     const { data } = await api.post('/auth/login', { email, password });
+    localStorage.removeItem('loggedOut'); // clear logout flag on login
     setAccessToken(data.accessToken);
     setUser(data.user);
     return data;
@@ -64,6 +72,7 @@ export function AuthProvider({ children }) {
 
   const register = useCallback(async (name, email, password) => {
     const { data } = await api.post('/auth/register', { name, email, password });
+    localStorage.removeItem('loggedOut'); // clear logout flag on register
     setAccessToken(data.accessToken);
     setUser(data.user);
     return data;
@@ -75,6 +84,7 @@ export function AuthProvider({ children }) {
     } catch {
       // ignore
     }
+    localStorage.setItem('loggedOut', 'true'); // prevent auto-restore on refresh
     setAccessToken(null);
     setUser(null);
   }, []);
