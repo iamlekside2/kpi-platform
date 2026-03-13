@@ -1,5 +1,5 @@
-// Supports both Resend (recommended for Vercel) and Nodemailer SMTP
-// Set RESEND_API_KEY env var to use Resend, or SMTP_HOST for Nodemailer
+// Email provider priority: Brevo (HTTP API) → Resend → Nodemailer SMTP
+// Set BREVO_API_KEY for Brevo, RESEND_API_KEY for Resend, or SMTP_HOST for Nodemailer
 
 let resendClient = null;
 
@@ -27,13 +27,55 @@ function getNodemailerTransporter() {
   });
 }
 
-async function sendEmail({ to, subject, html }) {
-  // Resend free tier REQUIRES sending from onboarding@resend.dev
-  // Only use custom EMAIL_FROM if you've verified a domain on Resend
-  const resendFrom = process.env.RESEND_FROM || 'KPI Platform <onboarding@resend.dev>';
-  const smtpFrom = process.env.EMAIL_FROM || process.env.SMTP_USER || 'noreply@kpi-platform.com';
+// ── Brevo (HTTP API — works on Vercel, 300 free emails/day) ──
 
-  // Try Resend first (works on Vercel serverless)
+async function sendViaBrevo({ to, subject, html, fromName, fromEmail }) {
+  const apiKey = process.env.BREVO_API_KEY;
+  if (!apiKey) return null; // not configured
+
+  const senderEmail = fromEmail || process.env.BREVO_SENDER_EMAIL || 'horllyk12@gmail.com';
+  const senderName = fromName || process.env.BREVO_SENDER_NAME || 'KPI Platform';
+
+  try {
+    const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: {
+        'accept': 'application/json',
+        'api-key': apiKey,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        sender: { name: senderName, email: senderEmail },
+        to: [{ email: to }],
+        subject,
+        htmlContent: html,
+      }),
+    });
+
+    const data = await res.json();
+
+    if (res.ok) {
+      console.log(`[Brevo] Email sent to ${to}: ${subject}`, JSON.stringify(data));
+      return true;
+    } else {
+      console.error(`[Brevo] Failed (${res.status}) to ${to}:`, JSON.stringify(data));
+      return false;
+    }
+  } catch (err) {
+    console.error(`[Brevo] Error sending to ${to}:`, err.message);
+    return false;
+  }
+}
+
+// ── Main sendEmail function ──────────────────────────────────
+
+async function sendEmail({ to, subject, html }) {
+  // 1. Try Brevo first (HTTP API, works on Vercel, 300/day free)
+  const brevoResult = await sendViaBrevo({ to, subject, html });
+  if (brevoResult === true) return true;
+
+  // 2. Try Resend (HTTP API, works on Vercel, but free tier is limited)
+  const resendFrom = process.env.RESEND_FROM || 'KPI Platform <onboarding@resend.dev>';
   const resend = getResend();
   if (resend) {
     try {
@@ -41,12 +83,12 @@ async function sendEmail({ to, subject, html }) {
       console.log(`[Resend] Email sent to ${to}: ${subject}`, JSON.stringify(result));
       return true;
     } catch (err) {
-      console.error(`[Resend] Failed to send email to ${to}:`, err.message, JSON.stringify(err));
-      return false;
+      console.error(`[Resend] Failed to send email to ${to}:`, err.message);
     }
   }
 
-  // Fallback to Nodemailer SMTP
+  // 3. Fallback to Nodemailer SMTP
+  const smtpFrom = process.env.EMAIL_FROM || process.env.SMTP_USER || 'noreply@kpi-platform.com';
   const transporter = getNodemailerTransporter();
   if (transporter) {
     try {
@@ -55,7 +97,6 @@ async function sendEmail({ to, subject, html }) {
       return true;
     } catch (err) {
       console.error(`[SMTP] Failed to send email to ${to}:`, err.message);
-      return false;
     }
   }
 
