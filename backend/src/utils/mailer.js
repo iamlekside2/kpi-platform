@@ -63,10 +63,16 @@ async function sendEmail({ to, subject, html }) {
   return false;
 }
 
+// ── Helpers ──────────────────────────────────────────────────
+
+function getFrontendUrl() {
+  return (process.env.FRONTEND_URL || 'http://localhost:5173').trim().replace(/\/+$/, '');
+}
+
 // ── Email Templates ──────────────────────────────────────────
 
 function sendWelcomeEmail(user) {
-  const loginUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/login`;
+  const loginUrl = `${getFrontendUrl()}/login`;
   return sendEmail({
     to: user.email,
     subject: 'Welcome to KPI Platform!',
@@ -89,7 +95,7 @@ function sendWelcomeEmail(user) {
 }
 
 function sendStaffInviteEmail({ email, name, orgName, inviterName, isNewAccount }) {
-  const loginUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/login`;
+  const loginUrl = `${getFrontendUrl()}/login`;
   const passwordNote = isNewAccount
     ? `<p style="color: #334155; font-size: 15px; line-height: 1.6; background: #fef3c7; padding: 12px 16px; border-radius: 8px; border: 1px solid #fbbf24;">Your temporary password is: <strong>Welcome@123</strong><br/><span style="font-size: 13px; color: #92400e;">Please change it after your first login.</span></p>`
     : '';
@@ -140,7 +146,7 @@ function sendPasswordResetEmail({ email, name, resetLink }) {
 }
 
 function sendPasswordChangedEmail({ email, name }) {
-  const loginUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/login`;
+  const loginUrl = `${getFrontendUrl()}/login`;
   return sendEmail({
     to: email,
     subject: 'Your Password Was Changed — KPI Platform',

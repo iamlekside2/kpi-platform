@@ -119,8 +119,8 @@ async function forgotPassword(email) {
 
   const resetToken = generateResetToken(user);
 
-  // Build the reset link
-  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+  // Build the reset link (trim to remove any trailing whitespace/newlines from env var)
+  const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:5173').trim().replace(/\/+$/, '');
   const resetLink = `${frontendUrl}/reset-password?token=${resetToken}`;
 
   // Send reset email using shared mailer
