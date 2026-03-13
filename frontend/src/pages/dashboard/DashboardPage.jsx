@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
 import PageWrapper from '../../components/layout/PageWrapper';
 import KPIGrid from '../../components/kpi/KPIGrid';
@@ -7,6 +8,8 @@ import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 
 export default function DashboardPage() {
+  const { orgRole } = useAuth();
+  const canManageKpis = orgRole === 'admin' || orgRole === 'lead';
   const [orgs, setOrgs] = useState([]);
   const [activeOrg, setActiveOrg] = useState(null);
   const [kpis, setKpis] = useState([]);
@@ -109,7 +112,7 @@ export default function DashboardPage() {
                     <span className="text-[10px] uppercase tracking-wider text-slate-500 font-medium">Members</span>
                   </div>
                 </div>
-                <Button onClick={() => setShowAddKpi(true)}>+ Add KPI</Button>
+                {canManageKpis && <Button onClick={() => setShowAddKpi(true)}>+ Add KPI</Button>}
               </div>
             </div>
 
@@ -148,7 +151,7 @@ export default function DashboardPage() {
               )}
             </AnimatePresence>
 
-            <KPIGrid kpis={kpis} onUpdate={handleKpiUpdate} onDelete={handleKpiDelete} />
+            <KPIGrid kpis={kpis} onUpdate={handleKpiUpdate} onDelete={canManageKpis ? handleKpiDelete : null} />
           </>
         )}
       </div>

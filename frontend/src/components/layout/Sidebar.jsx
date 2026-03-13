@@ -1,15 +1,18 @@
 import { NavLink } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { useAuth } from '../../context/AuthContext';
 
-const links = [
+const allLinks = [
   { to: '/dashboard', label: 'Dashboard', icon: '📊' },
-  { to: '/staff', label: 'Staff', icon: '👥' },
+  { to: '/staff', label: 'Staff', icon: '👥', roles: ['admin', 'lead'] },
   { to: '/appraisals', label: 'Appraisals', icon: '📋' },
-  { to: '/import', label: 'CSV Import', icon: '📁' },
+  { to: '/import', label: 'CSV Import', icon: '📁', roles: ['admin', 'lead'] },
   { to: '/settings', label: 'Settings', icon: '⚙️' },
 ];
 
 export default function Sidebar() {
+  const { orgRole } = useAuth();
+  const links = allLinks.filter(link => !link.roles || link.roles.includes(orgRole));
   return (
     <aside className="w-64 min-h-screen bg-slate-950 border-r border-white/[0.06] flex flex-col">
       {/* Brand */}
