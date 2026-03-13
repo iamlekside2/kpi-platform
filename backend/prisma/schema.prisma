@@ -25,6 +25,7 @@ model Organisation {
   industry      String         @default("")
   themeColor    String         @default("indigo")
   members       OrgMember[]
+  departments   Department[]
   kpis          KPI[]
   integrations  Integration[]
   syncLogs      SyncLog[]
@@ -34,14 +35,29 @@ model Organisation {
 }
 
 model OrgMember {
-  id     String       @id @default(uuid())
-  role   String       // admin | lead | member
-  user   User         @relation(fields: [userId], references: [id])
-  userId String
-  org    Organisation @relation(fields: [orgId], references: [id])
-  orgId  String
+  id           String       @id @default(uuid())
+  role         String       // admin | lead | member
+  user         User         @relation(fields: [userId], references: [id])
+  userId       String
+  org          Organisation @relation(fields: [orgId], references: [id])
+  orgId        String
+  department   Department?  @relation(fields: [departmentId], references: [id])
+  departmentId String?
 
   @@unique([userId, orgId])
+}
+
+model Department {
+  id          String       @id @default(uuid())
+  name        String
+  slug        String       // tech | sales | general | custom slugs
+  description String       @default("")
+  orgId       String
+  org         Organisation @relation(fields: [orgId], references: [id])
+  members     OrgMember[]
+  createdAt   DateTime     @default(now())
+
+  @@unique([orgId, slug])
 }
 
 model KPI {

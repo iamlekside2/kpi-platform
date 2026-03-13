@@ -12,29 +12,45 @@ const ROLE_CONFIG = {
   member: { label: 'Employee', color: 'bg-slate-500/10 text-slate-400 border-slate-500/20', icon: '👤', description: 'Can fill self-assessment and view own appraisals' },
 };
 
+const DEPT_COLORS = {
+  tech: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
+  sales: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+  general: 'bg-slate-500/10 text-slate-400 border-slate-500/20',
+};
+
+function getDeptColor(slug) {
+  return DEPT_COLORS[slug] || 'bg-accent-500/10 text-accent-400 border-accent-500/20';
+}
+
 export default function StaffPage() {
   const { activeOrg, orgRole, loadOrgRole } = useAuth();
   const [members, setMembers] = useState([]);
+  const [departments, setDepartments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showInvite, setShowInvite] = useState(false);
   const [inviteName, setInviteName] = useState('');
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState('member');
+  const [inviteDeptId, setInviteDeptId] = useState('');
   const [inviteError, setInviteError] = useState('');
   const [inviteSuccess, setInviteSuccess] = useState('');
   const [inviting, setInviting] = useState(false);
   const [editingMember, setEditingMember] = useState(null);
+  const [editingDept, setEditingDept] = useState(null);
+  const [filterDept, setFilterDept] = useState('all');
   const [error, setError] = useState('');
 
   const isAdmin = orgRole === 'admin';
 
-  // If activeOrg is not loaded yet, try loading it
   useEffect(() => {
     if (!activeOrg) loadOrgRole();
   }, []);
 
   useEffect(() => {
-    if (activeOrg) loadMembers();
+    if (activeOrg) {
+      loadMembers();
+      loadDepartments();
+    }
   }, [activeOrg]);
 
   async function loadMembers() {
@@ -49,6 +65,15 @@ export default function StaffPage() {
     }
   }
 
+  async function loadDepartments() {
+    try {
+      const { data } = await api.get(`/departments/org/${activeOrg.id}`);
+      setDepartments(data);
+    } catch (err) {
+      console.error('Failed to load departments:', err);
+    }
+  }
+
   async function handleInvite(e) {
     e.preventDefault();
     setInviting(true);
@@ -59,12 +84,14 @@ export default function StaffPage() {
         email: inviteEmail,
         name: inviteName,
         role: inviteRole,
+        departmentId: inviteDeptId || undefined,
       });
       setMembers([...members, data]);
       setShowInvite(false);
       setInviteName('');
       setInviteEmail('');
       setInviteRole('member');
+      setInviteDeptId('');
       setInviteSuccess(`${data.name} added! Default password: Welcome@123`);
       setTimeout(() => setInviteSuccess(''), 8000);
     } catch (err) {
@@ -79,10 +106,19 @@ export default function StaffPage() {
       await api.patch(`/orgs/${activeOrg.id}/members/${memberId}`, { role: newRole });
       setMembers(members.map((m) => m.id === memberId ? { ...m, role: newRole } : m));
       setEditingMember(null);
-      // Refresh own role in case we changed it
       loadOrgRole();
     } catch (err) {
       alert(err.response?.data?.error || 'Failed to update role');
+    }
+  }
+
+  async function handleDeptChange(memberId, departmentId) {
+    try {
+      const { data } = await api.patch(`/orgs/${activeOrg.id}/members/${memberId}/department`, { departmentId: departmentId || null });
+      setMembers(members.map((m) => m.id === memberId ? { ...m, department: data.department } : m));
+      setEditingDept(null);
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to update department');
     }
   }
 
@@ -95,6 +131,12 @@ export default function StaffPage() {
       alert(err.response?.data?.error || 'Failed to remove member');
     }
   }
+
+  const filteredMembers = filterDept === 'all'
+    ? members
+    : filterDept === 'unassigned'
+      ? members.filter((m) => !m.department)
+      : members.filter((m) => m.department?.id === filterDept);
 
   if (!activeOrg) {
     return (
@@ -118,6 +160,50 @@ export default function StaffPage() {
             <Button onClick={() => setShowInvite(true)}>+ Add Staff</Button>
           )}
         </div>
+
+        {/* Department filter tabs */}
+        {departments.length > 0 && (
+          <div className="flex gap-1 p-1 bg-surface-900/60 border border-white/[0.06] rounded-xl mb-6 overflow-x-auto">
+            <button
+              onClick={() => setFilterDept('all')}
+              className={`px-4 py-2 rounded-lg text-xs font-medium transition-all whitespace-nowrap cursor-pointer
+                ${filterDept === 'all'
+                  ? 'bg-accent-500/15 text-accent-400 shadow-sm'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]'}`}
+            >
+              All ({members.length})
+            </button>
+            {departments.map((dept) => {
+              const count = members.filter((m) => m.department?.id === dept.id).length;
+              return (
+                <button
+                  key={dept.id}
+                  onClick={() => setFilterDept(dept.id)}
+                  className={`px-4 py-2 rounded-lg text-xs font-medium transition-all whitespace-nowrap cursor-pointer
+                    ${filterDept === dept.id
+                      ? 'bg-accent-500/15 text-accent-400 shadow-sm'
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]'}`}
+                >
+                  {dept.name} ({count})
+                </button>
+              );
+            })}
+            {(() => {
+              const unassignedCount = members.filter((m) => !m.department).length;
+              return unassignedCount > 0 ? (
+                <button
+                  onClick={() => setFilterDept('unassigned')}
+                  className={`px-4 py-2 rounded-lg text-xs font-medium transition-all whitespace-nowrap cursor-pointer
+                    ${filterDept === 'unassigned'
+                      ? 'bg-accent-500/15 text-accent-400 shadow-sm'
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]'}`}
+                >
+                  Unassigned ({unassignedCount})
+                </button>
+              ) : null;
+            })()}
+          </div>
+        )}
 
         {/* Role legend */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
@@ -159,11 +245,11 @@ export default function StaffPage() {
                 initial={{ opacity: 0, y: 20, scale: 0.95 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: 20, scale: 0.95 }}
-                className="bg-surface-900 border border-white/[0.06] rounded-2xl p-6 w-full max-w-md shadow-2xl"
+                className="bg-surface-900 border border-white/[0.06] rounded-2xl p-6 w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto"
                 onClick={(e) => e.stopPropagation()}
               >
                 <h3 className="text-lg font-bold text-white mb-1">Add Staff Member</h3>
-                <p className="text-xs text-slate-500 mb-4">Enter the staff member's details. An account will be created automatically if they don't have one.</p>
+                <p className="text-xs text-slate-500 mb-4">Enter the staff member&apos;s details. An account will be created automatically if they don&apos;t have one.</p>
 
                 <form onSubmit={handleInvite}>
                   <Input
@@ -182,6 +268,25 @@ export default function StaffPage() {
                     placeholder="john@company.com"
                     required
                   />
+
+                  {/* Department selector */}
+                  {departments.length > 0 && (
+                    <div className="mb-4">
+                      <label className="text-xs font-medium text-slate-400 uppercase tracking-wider block mb-2">Department</label>
+                      <select
+                        value={inviteDeptId}
+                        onChange={(e) => setInviteDeptId(e.target.value)}
+                        className="w-full px-4 py-2.5 bg-slate-800/50 border border-white/[0.06] rounded-lg text-sm text-slate-100 outline-none focus:border-accent-500/50 focus:ring-2 focus:ring-accent-500/20 transition-all appearance-none cursor-pointer"
+                      >
+                        <option value="" className="bg-slate-800">No department</option>
+                        {departments.map((dept) => (
+                          <option key={dept.id} value={dept.id} className="bg-slate-800">
+                            {dept.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
 
                   <div className="mb-4">
                     <label className="text-xs font-medium text-slate-400 uppercase tracking-wider block mb-2">Assign Role</label>
@@ -237,7 +342,7 @@ export default function StaffPage() {
           <div className="text-center py-20 text-red-400">{error}</div>
         ) : (
           <div className="space-y-2">
-            {members.map((m, i) => {
+            {filteredMembers.map((m, i) => {
               const cfg = ROLE_CONFIG[m.role] || ROLE_CONFIG.member;
               return (
                 <motion.div
@@ -252,13 +357,39 @@ export default function StaffPage() {
                       {cfg.icon}
                     </div>
                     <div>
-                      <div className="text-sm font-semibold text-white">{m.name}</div>
+                      <div className="text-sm font-semibold text-white flex items-center gap-2 flex-wrap">
+                        {m.name}
+                        {m.department && (
+                          <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full border ${getDeptColor(m.department.slug)}`}>
+                            {m.department.name}
+                          </span>
+                        )}
+                      </div>
                       <div className="text-xs text-slate-500">{m.email}</div>
                     </div>
                   </div>
 
                   <div className="flex items-center gap-3">
-                    {editingMember === m.id ? (
+                    {editingDept === m.id ? (
+                      <div className="flex gap-1 items-center">
+                        <select
+                          defaultValue={m.department?.id || ''}
+                          onChange={(e) => handleDeptChange(m.id, e.target.value)}
+                          className="px-2 py-1 bg-slate-800/80 border border-white/[0.08] rounded-lg text-[11px] text-slate-200 outline-none cursor-pointer"
+                        >
+                          <option value="" className="bg-slate-800">No dept</option>
+                          {departments.map((d) => (
+                            <option key={d.id} value={d.id} className="bg-slate-800">{d.name}</option>
+                          ))}
+                        </select>
+                        <button
+                          onClick={() => setEditingDept(null)}
+                          className="px-2 py-1 text-slate-500 hover:text-slate-300 text-xs cursor-pointer"
+                        >
+                          &times;
+                        </button>
+                      </div>
+                    ) : editingMember === m.id ? (
                       <div className="flex gap-1">
                         {['admin', 'lead', 'member'].map((r) => (
                           <button
@@ -287,7 +418,16 @@ export default function StaffPage() {
                         {isAdmin && (
                           <div className="flex gap-1">
                             <button
-                              onClick={() => setEditingMember(m.id)}
+                              onClick={() => { setEditingDept(m.id); setEditingMember(null); }}
+                              className="p-1.5 rounded-lg text-slate-500 hover:text-slate-300 hover:bg-white/[0.06] transition-all cursor-pointer"
+                              title="Change department"
+                            >
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                              </svg>
+                            </button>
+                            <button
+                              onClick={() => { setEditingMember(m.id); setEditingDept(null); }}
                               className="p-1.5 rounded-lg text-slate-500 hover:text-slate-300 hover:bg-white/[0.06] transition-all cursor-pointer"
                               title="Change role"
                             >
@@ -312,10 +452,15 @@ export default function StaffPage() {
                 </motion.div>
               );
             })}
+
+            {filteredMembers.length === 0 && (
+              <div className="text-center py-12 text-slate-500 text-sm">
+                No staff members in this department.
+              </div>
+            )}
           </div>
         )}
 
-        {/* Non-admin info */}
         {!isAdmin && (
           <div className="mt-6 px-4 py-3 bg-slate-800/50 border border-white/[0.06] rounded-lg text-xs text-slate-500 text-center">
             Only administrators can invite staff and change roles.

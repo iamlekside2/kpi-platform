@@ -1,6 +1,7 @@
 const prisma = require('../../config/db');
 const bcrypt = require('bcryptjs');
 const { sendStaffInviteEmail } = require('../../utils/mailer');
+const { seedDefaultDepartments } = require('../departments/departments.service');
 
 const SALT_ROUNDS = 12;
 
@@ -19,6 +20,9 @@ async function createOrg({ name, userId }) {
       members: { include: { user: { select: { id: true, email: true, name: true } } } },
     },
   });
+
+  // Seed default departments for the new org
+  await seedDefaultDepartments(org.id).catch(() => {});
 
   return org;
 }
@@ -48,7 +52,7 @@ async function getOrgById(orgId, userId) {
   return org;
 }
 
-async function inviteToOrg({ orgId, email, name, role = 'member', inviterId }) {
+async function inviteToOrg({ orgId, email, name, role = 'member', departmentId, inviterId }) {
   // Verify inviter is admin
   const inviterMembership = await prisma.orgMember.findUnique({
     where: { userId_orgId: { userId: inviterId, orgId } },
@@ -87,9 +91,15 @@ async function inviteToOrg({ orgId, email, name, role = 'member', inviterId }) {
     throw new Error('User is already a member');
   }
 
+  const memberData = { role, userId: user.id, orgId };
+  if (departmentId) memberData.departmentId = departmentId;
+
   const member = await prisma.orgMember.create({
-    data: { role, userId: user.id, orgId },
-    include: { user: { select: { id: true, email: true, name: true } } },
+    data: memberData,
+    include: {
+      user: { select: { id: true, email: true, name: true } },
+      department: { select: { id: true, name: true, slug: true } },
+    },
   });
 
   // Get org name and inviter name for the email
@@ -114,6 +124,7 @@ async function inviteToOrg({ orgId, email, name, role = 'member', inviterId }) {
     userId: member.userId,
     name: member.user.name,
     email: member.user.email,
+    department: member.department || null,
     isNewAccount,
   };
 }
@@ -148,7 +159,10 @@ async function getOrgMembers(orgId, requesterId) {
 
   const members = await prisma.orgMember.findMany({
     where: { orgId },
-    include: { user: { select: { id: true, email: true, name: true, createdAt: true } } },
+    include: {
+      user: { select: { id: true, email: true, name: true, createdAt: true } },
+      department: { select: { id: true, name: true, slug: true } },
+    },
     orderBy: { user: { name: 'asc' } },
   });
 
@@ -158,6 +172,7 @@ async function getOrgMembers(orgId, requesterId) {
     userId: m.userId,
     name: m.user.name,
     email: m.user.email,
+    department: m.department || null,
     joinedAt: m.user.createdAt,
   }));
 }
@@ -209,6 +224,37 @@ async function removeMember(orgId, memberId, requesterId) {
   return { success: true };
 }
 
+// ── Update member department ──
+async function updateMemberDepartment(orgId, memberId, departmentId, requesterId) {
+  const requester = await prisma.orgMember.findUnique({
+    where: { userId_orgId: { userId: requesterId, orgId } },
+  });
+  if (!requester || requester.role !== 'admin') {
+    throw new Error('Only admins can change departments');
+  }
+
+  const target = await prisma.orgMember.findUnique({ where: { id: memberId } });
+  if (!target) throw new Error('Member not found');
+
+  const updated = await prisma.orgMember.update({
+    where: { id: memberId },
+    data: { departmentId: departmentId || null },
+    include: {
+      user: { select: { id: true, email: true, name: true } },
+      department: { select: { id: true, name: true, slug: true } },
+    },
+  });
+
+  return {
+    id: updated.id,
+    role: updated.role,
+    userId: updated.userId,
+    name: updated.user.name,
+    email: updated.user.email,
+    department: updated.department || null,
+  };
+}
+
 // ── Update theme colour ──
 async function updateThemeColor(orgId, themeColor, requesterId) {
   const requester = await prisma.orgMember.findUnique({
@@ -226,4 +272,4 @@ async function updateThemeColor(orgId, themeColor, requesterId) {
   return { themeColor: org.themeColor };
 }
 
-module.exports = { createOrg, getOrgById, inviteToOrg, getUserOrgs, getOrgMembers, updateMemberRole, removeMember, updateThemeColor };
+module.exports = { createOrg, getOrgById, inviteToOrg, getUserOrgs, getOrgMembers, updateMemberRole, updateMemberDepartment, removeMember, updateThemeColor };

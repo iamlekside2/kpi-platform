@@ -30,7 +30,7 @@ async function getOrg(req, res) {
 
 async function inviteToOrg(req, res) {
   try {
-    const { email, name, role } = req.body;
+    const { email, name, role, departmentId } = req.body;
     if (!email) {
       return res.status(400).json({ error: 'Email is required' });
     }
@@ -40,6 +40,7 @@ async function inviteToOrg(req, res) {
       email,
       name,
       role,
+      departmentId,
       inviterId: req.user.userId,
     });
 
@@ -113,6 +114,26 @@ async function removeMember(req, res) {
   }
 }
 
+async function updateMemberDepartment(req, res) {
+  try {
+    const { departmentId } = req.body;
+    const member = await orgsService.updateMemberDepartment(
+      req.params.id,
+      req.params.memberId,
+      departmentId,
+      req.user.userId
+    );
+    return res.json(member);
+  } catch (err) {
+    const clientErrors = ['Only admins can change departments', 'Member not found'];
+    if (clientErrors.includes(err.message)) {
+      return res.status(400).json({ error: err.message });
+    }
+    console.error('Update department error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
 async function updateThemeColor(req, res) {
   try {
     const { themeColor } = req.body;
@@ -131,4 +152,4 @@ async function updateThemeColor(req, res) {
   }
 }
 
-module.exports = { createOrg, getOrg, inviteToOrg, getUserOrgs, getMembers, updateMemberRole, removeMember, updateThemeColor };
+module.exports = { createOrg, getOrg, inviteToOrg, getUserOrgs, getMembers, updateMemberRole, updateMemberDepartment, removeMember, updateThemeColor };

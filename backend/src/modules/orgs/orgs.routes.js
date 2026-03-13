@@ -1,5 +1,5 @@
 const { Router } = require('express');
-const { createOrg, getOrg, inviteToOrg, getUserOrgs, getMembers, updateMemberRole, removeMember, updateThemeColor } = require('./orgs.controller');
+const { createOrg, getOrg, inviteToOrg, getUserOrgs, getMembers, updateMemberRole, updateMemberDepartment, removeMember, updateThemeColor } = require('./orgs.controller');
 
 const router = Router();
 
@@ -11,6 +11,7 @@ router.post('/:id/invite', inviteToOrg);
 // Member management
 router.get('/:id/members', getMembers);
 router.patch('/:id/members/:memberId', updateMemberRole);
+router.patch('/:id/members/:memberId/department', updateMemberDepartment);
 router.delete('/:id/members/:memberId', removeMember);
 
 // Theme

@@ -182,14 +182,25 @@ export default function AppraisalsPage() {
                     <label className="text-xs font-medium text-slate-400 uppercase tracking-wider block mb-2">Employee</label>
                     <select
                       value={selectedEmployee}
-                      onChange={(e) => setSelectedEmployee(e.target.value)}
+                      onChange={(e) => {
+                        const empId = e.target.value;
+                        setSelectedEmployee(empId);
+                        // Auto-fill department from employee's assigned department
+                        if (empId) {
+                          const member = members.find((m) => m.userId === empId);
+                          const slug = member?.department?.slug;
+                          if (slug && departments.some((d) => d.key === slug)) {
+                            setDepartment(slug);
+                          }
+                        }
+                      }}
                       required
                       className="w-full px-4 py-2.5 bg-slate-800/50 border border-white/[0.06] rounded-lg text-sm text-slate-100 outline-none focus:border-accent-500/50 focus:ring-2 focus:ring-accent-500/20 transition-all appearance-none cursor-pointer"
                     >
                       <option value="" className="bg-slate-800">Select employee...</option>
                       {members.map((m) => (
                         <option key={m.userId} value={m.userId} className="bg-slate-800">
-                          {m.name} ({m.email}) — {m.role}
+                          {m.name} ({m.email}) — {m.role}{m.department ? ` · ${m.department.name}` : ''}
                         </option>
                       ))}
                     </select>
