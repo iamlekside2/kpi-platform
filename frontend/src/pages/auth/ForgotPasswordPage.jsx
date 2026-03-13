@@ -1,12 +1,19 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
 
 export default function ForgotPasswordPage() {
+  const { isAuthenticated, logout } = useAuth();
   const [email, setEmail] = useState('');
+
+  // If user is logged in, log them out — they're here to reset password
+  useEffect(() => {
+    if (isAuthenticated) logout();
+  }, []);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [submitting, setSubmitting] = useState(false);
