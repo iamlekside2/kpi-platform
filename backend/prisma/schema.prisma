@@ -1,0 +1,131 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                  String       @id @default(uuid())
+  email               String       @unique
+  name                String
+  password            String
+  orgs                OrgMember[]
+  employeeAppraisals  Appraisal[]  @relation("EmployeeAppraisals")
+  reviewerAppraisals  Appraisal[]  @relation("ReviewerAppraisals")
+  createdAt           DateTime     @default(now())
+}
+
+model Organisation {
+  id           String        @id @default(uuid())
+  name         String
+  industry     String        @default("")
+  members      OrgMember[]
+  kpis         KPI[]
+  integrations Integration[]
+  syncLogs     SyncLog[]
+  appraisals   Appraisal[]
+  createdAt    DateTime      @default(now())
+}
+
+model OrgMember {
+  id     String       @id @default(uuid())
+  role   String       // admin | lead | member
+  user   User         @relation(fields: [userId], references: [id])
+  userId String
+  org    Organisation @relation(fields: [orgId], references: [id])
+  orgId  String
+
+  @@unique([userId, orgId])
+}
+
+model KPI {
+  id             String          @id @default(uuid())
+  name           String
+  unit           String
+  target         Float?
+  value          Float?
+  category       String
+  description    String          @default("")
+  alertThreshold Float?
+  alertEnabled   Boolean         @default(false)
+  orgId          String
+  org            Organisation    @relation(fields: [orgId], references: [id])
+  updatedAt      DateTime        @updatedAt
+  createdAt      DateTime        @default(now())
+}
+
+model Integration {
+  id           String       @id @default(uuid())
+  tool         String       // ado | jira | asana
+  accessToken  String       // encrypted
+  orgUrl       String       @default("")
+  email        String       @default("")
+  fieldMap     Json         @default("{}")
+  status       String       @default("connected") // connected | error
+  lastSyncedAt DateTime?
+  orgId        String
+  org          Organisation @relation(fields: [orgId], references: [id])
+  syncLogs     SyncLog[]
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+}
+
+model SyncLog {
+  id            String       @id @default(uuid())
+  status        String       // success | failure
+  rowsUpdated   Int          @default(0)
+  errorMessage  String?
+  integrationId String
+  integration   Integration  @relation(fields: [integrationId], references: [id])
+  orgId         String
+  org           Organisation @relation(fields: [orgId], references: [id])
+  createdAt     DateTime     @default(now())
+}
+
+// ── Performance Appraisal ──────────────────────────────────
+
+model Appraisal {
+  id              String            @id @default(uuid())
+  department      String            @default("tech") // tech | sales | general
+  status          String            @default("draft") // draft | submitted | unit_reviewed | admin_reviewed | completed
+  reviewPeriodFrom DateTime
+  reviewPeriodTo   DateTime
+
+  // Section A1 — Employee self-assessment text answers
+  selfAssessment  Json              @default("{}") // key-value pairs of question→answer
+
+  // Section 1 — Employee self-rating (attribute scores out of 10)
+  selfRatings     Json              @default("{}") // { "quantity_of_work": 8, "quality_of_work": 7, ... }
+
+  // Section 1 — Department-specific answers (tech questions OR sales questions)
+  technicalAnswers Json             @default("{}") // key-value pairs
+
+  // Section 2 — Unit Head review scores (out of 8)
+  unitHeadScores  Json              @default("{}") // { "targets_productivity": 6, ... }
+  unitHeadComment String            @default("")
+
+  // Section 2 — Admin comment
+  adminComment    String            @default("")
+
+  // Section 3 — MD overall comments & scoring
+  mdComment       String            @default("")
+  mdScore         Int               @default(0) // MD's score out of 100
+
+  // Final aggregated result
+  finalScore      Float             @default(0) // Aggregated 0-100
+  grade           String            @default("") // A | B | C | D
+
+  // Relations
+  employeeId      String
+  employee        User              @relation("EmployeeAppraisals", fields: [employeeId], references: [id])
+  reviewerId      String?
+  reviewer        User?             @relation("ReviewerAppraisals", fields: [reviewerId], references: [id])
+  orgId           String
+  org             Organisation      @relation(fields: [orgId], references: [id])
+
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+}

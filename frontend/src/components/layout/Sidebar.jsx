@@ -1,0 +1,66 @@
+import { NavLink } from 'react-router-dom';
+import { motion } from 'framer-motion';
+
+const links = [
+  { to: '/dashboard', label: 'Dashboard', icon: '📊' },
+  { to: '/staff', label: 'Staff', icon: '👥' },
+  { to: '/appraisals', label: 'Appraisals', icon: '📋' },
+  { to: '/import', label: 'CSV Import', icon: '📁' },
+  { to: '/settings', label: 'Settings', icon: '⚙️' },
+];
+
+export default function Sidebar() {
+  return (
+    <aside className="w-64 min-h-screen bg-slate-950 border-r border-white/[0.06] flex flex-col">
+      {/* Brand */}
+      <div className="px-6 py-6 border-b border-white/[0.06]">
+        <motion.h2
+          initial={{ opacity: 0, x: -10 }}
+          animate={{ opacity: 1, x: 0 }}
+          className="text-lg font-bold text-white tracking-tight"
+        >
+          <span className="text-indigo-400">KPI</span> Platform
+        </motion.h2>
+      </div>
+
+      {/* Navigation */}
+      <nav className="flex-1 px-3 py-4 flex flex-col gap-1">
+        {links.map((link, i) => (
+          <NavLink
+            key={link.to}
+            to={link.to}
+            className={({ isActive }) =>
+              `group flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200
+              ${isActive
+                ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 shadow-sm shadow-indigo-500/10'
+                : 'text-slate-400 hover:bg-white/[0.04] hover:text-slate-200 border border-transparent'}`
+            }
+          >
+            {({ isActive }) => (
+              <motion.div
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: i * 0.05 }}
+                className="flex items-center gap-3 w-full"
+              >
+                <span className="text-base">{link.icon}</span>
+                <span>{link.label}</span>
+                {isActive && (
+                  <motion.div
+                    layoutId="activeIndicator"
+                    className="ml-auto w-1.5 h-1.5 rounded-full bg-indigo-400"
+                  />
+                )}
+              </motion.div>
+            )}
+          </NavLink>
+        ))}
+      </nav>
+
+      {/* Footer */}
+      <div className="px-6 py-4 border-t border-white/[0.06]">
+        <p className="text-[10px] text-slate-600 uppercase tracking-widest">v1.0 Beta</p>
+      </div>
+    </aside>
+  );
+}
