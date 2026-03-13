@@ -1,5 +1,6 @@
 const prisma = require('../../config/db');
 const bcrypt = require('bcryptjs');
+const { sendStaffInviteEmail } = require('../../utils/mailer');
 
 const SALT_ROUNDS = 12;
 
@@ -91,13 +92,29 @@ async function inviteToOrg({ orgId, email, name, role = 'member', inviterId }) {
     include: { user: { select: { id: true, email: true, name: true } } },
   });
 
+  // Get org name and inviter name for the email
+  const [org, inviter] = await Promise.all([
+    prisma.organisation.findUnique({ where: { id: orgId }, select: { name: true } }),
+    prisma.user.findUnique({ where: { id: inviterId }, select: { name: true } }),
+  ]);
+
+  // Send invite email (fire-and-forget)
+  const isNewAccount = !existing; // new account was just created
+  sendStaffInviteEmail({
+    email,
+    name: member.user.name,
+    orgName: org?.name || 'your organisation',
+    inviterName: inviter?.name || 'An admin',
+    isNewAccount,
+  }).catch(() => {});
+
   return {
     id: member.id,
     role: member.role,
     userId: member.userId,
     name: member.user.name,
     email: member.user.email,
-    isNewAccount: !user.createdAt || true, // flag for frontend
+    isNewAccount,
   };
 }
 

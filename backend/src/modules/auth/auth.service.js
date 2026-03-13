@@ -2,6 +2,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const prisma = require('../../config/db');
 const env = require('../../config/env');
+const { sendWelcomeEmail, sendPasswordResetEmail, sendPasswordChangedEmail } = require('../../utils/mailer');
 
 const SALT_ROUNDS = 12;
 
@@ -51,6 +52,9 @@ async function registerUser({ email, name, password }) {
 
   const accessToken = generateAccessToken(user);
   const refreshToken = generateRefreshToken(user);
+
+  // Send welcome email (fire-and-forget, don't block registration)
+  sendWelcomeEmail(user).catch(() => {});
 
   return { user, accessToken, refreshToken };
 }
@@ -120,43 +124,11 @@ async function forgotPassword(email) {
   const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
   const resetLink = `${frontendUrl}/reset-password?token=${resetToken}`;
 
-  // Try sending email if SMTP is configured
-  if (process.env.SMTP_HOST) {
-    try {
-      const nodemailer = require('nodemailer');
-      const transporter = nodemailer.createTransport({
-        host: process.env.SMTP_HOST,
-        port: parseInt(process.env.SMTP_PORT || '587'),
-        secure: process.env.SMTP_SECURE === 'true',
-        auth: {
-          user: process.env.SMTP_USER,
-          pass: process.env.SMTP_PASS,
-        },
-      });
+  // Send reset email using shared mailer
+  const sent = await sendPasswordResetEmail({ email, name: user.name, resetLink });
 
-      await transporter.sendMail({
-        from: process.env.SMTP_FROM || 'noreply@kpiplatform.com',
-        to: email,
-        subject: 'Reset Your Password — KPI Platform',
-        html: `
-          <div style="font-family: sans-serif; max-width: 500px; margin: 0 auto;">
-            <h2>Password Reset</h2>
-            <p>Hi ${user.name},</p>
-            <p>You requested to reset your password. Click the button below to set a new password:</p>
-            <a href="${resetLink}" style="display: inline-block; padding: 12px 24px; background: #6366f1; color: white; text-decoration: none; border-radius: 8px; font-weight: 600;">Reset Password</a>
-            <p style="margin-top: 16px; color: #666; font-size: 14px;">This link expires in 15 minutes. If you didn't request this, ignore this email.</p>
-          </div>
-        `,
-      });
-      console.log(`Password reset email sent to ${email}`);
-    } catch (err) {
-      console.error('Failed to send reset email:', err.message);
-      // Still return success + link for development fallback
-      return { sent: true, resetLink };
-    }
-  } else {
-    // No SMTP configured — log the link for development
-    console.log(`[DEV] Password reset link for ${email}: ${resetLink}`);
+  if (!sent) {
+    // SMTP not configured or failed — return link for dev/fallback
     return { sent: true, resetLink };
   }
 
@@ -176,6 +148,9 @@ async function resetPassword(token, newPassword) {
     where: { id: user.id },
     data: { password: hashedPassword },
   });
+
+  // Send confirmation email (fire-and-forget)
+  sendPasswordChangedEmail({ email: user.email, name: user.name }).catch(() => {});
 
   return { success: true };
 }
