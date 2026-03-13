@@ -32,7 +32,8 @@ export function AuthProvider({ children }) {
 
     async function restoreSession() {
       try {
-        const { data } = await axios.post('/api/auth/refresh', {}, { withCredentials: true });
+        const apiBase = import.meta.env.VITE_API_URL || '/api';
+        const { data } = await axios.post(`${apiBase}/auth/refresh`, {}, { withCredentials: true });
         setAccessToken(data.accessToken);
         setUser(data.user);
       } catch {

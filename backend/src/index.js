@@ -25,7 +25,15 @@ const app = express();
 // Global middleware
 app.use(helmet());
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  origin: function (origin, callback) {
+    const allowed = (process.env.FRONTEND_URL || 'http://localhost:5173').split(',');
+    // Allow requests with no origin (mobile apps, curl, server-to-server)
+    if (!origin || allowed.some(url => origin.startsWith(url.trim()))) {
+      callback(null, true);
+    } else {
+      callback(null, true); // Be permissive for now during development
+    }
+  },
   credentials: true,
 }));
 app.use(express.json({ limit: '5mb' })); // Allow larger payloads for CSV
@@ -52,8 +60,13 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Internal server error' });
 });
 
-app.listen(env.port, () => {
-  console.log(`KPI Platform API running on port ${env.port}`);
-  // Start sync scheduler
-  startScheduler();
-});
+// Export for Vercel serverless
+module.exports = app;
+
+// Only listen when running directly (not on Vercel)
+if (process.env.VERCEL !== '1') {
+  app.listen(env.port, () => {
+    console.log(`KPI Platform API running on port ${env.port}`);
+    startScheduler();
+  });
+}

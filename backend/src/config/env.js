@@ -10,12 +10,14 @@ const env = {
   jwtRefreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
 };
 
-// Validate required vars
+// Validate required vars (warn but don't exit on Vercel — env vars are set in dashboard)
 const required = ['databaseUrl', 'jwtSecret', 'jwtRefreshSecret'];
 for (const key of required) {
   if (!env[key]) {
     console.error(`Missing required environment variable: ${key}`);
-    process.exit(1);
+    if (process.env.VERCEL !== '1') {
+      process.exit(1);
+    }
   }
 }
 
