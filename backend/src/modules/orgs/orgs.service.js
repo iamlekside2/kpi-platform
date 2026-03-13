@@ -62,7 +62,8 @@ async function inviteToOrg({ orgId, email, name, role = 'member', inviterId }) {
 
   if (!user) {
     // Auto-create account for the staff member with a default password
-    if (!name) throw new Error('Name is required when adding a new staff member');
+    // Use email prefix as fallback name if none provided
+    const staffName = name || email.split('@')[0];
 
     const defaultPassword = 'Welcome@123';
     const hashedPassword = await bcrypt.hash(defaultPassword, SALT_ROUNDS);
@@ -70,7 +71,7 @@ async function inviteToOrg({ orgId, email, name, role = 'member', inviterId }) {
     user = await prisma.user.create({
       data: {
         email,
-        name,
+        name: staffName,
         password: hashedPassword,
       },
     });
