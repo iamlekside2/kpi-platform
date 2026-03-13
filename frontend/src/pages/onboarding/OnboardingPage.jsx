@@ -95,7 +95,7 @@ export default function OnboardingPage() {
     <div className="min-h-screen flex items-center justify-center bg-slate-950 px-4 py-8">
       {/* Background glow */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-indigo-500/5 rounded-full blur-3xl" />
+        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-accent-500/5 rounded-full blur-3xl" />
       </div>
 
       <motion.div
@@ -110,8 +110,8 @@ export default function OnboardingPage() {
             {STEPS.map((label, i) => (
               <div key={label} className="flex items-center gap-2 flex-1">
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold border-2 transition-all duration-300
-                  ${i < step ? 'bg-indigo-500 border-indigo-500 text-white' :
-                    i === step ? 'border-indigo-500 text-indigo-400 bg-indigo-500/10' :
+                  ${i < step ? 'bg-accent-500 border-accent-500 text-white' :
+                    i === step ? 'border-accent-500 text-accent-400 bg-accent-500/10' :
                     'border-white/10 text-slate-600 bg-transparent'}`}>
                   {i < step ? '✓' : i + 1}
                 </div>
@@ -120,7 +120,7 @@ export default function OnboardingPage() {
                   {label}
                 </span>
                 {i < STEPS.length - 1 && (
-                  <div className={`flex-1 h-px mx-2 transition-colors ${i < step ? 'bg-indigo-500' : 'bg-white/[0.06]'}`} />
+                  <div className={`flex-1 h-px mx-2 transition-colors ${i < step ? 'bg-accent-500' : 'bg-white/[0.06]'}`} />
                 )}
               </div>
             ))}
@@ -180,7 +180,7 @@ export default function OnboardingPage() {
                 </p>
 
                 {selectedTemplates.length > 0 && selectedTemplates[0] !== 'custom' && (
-                  <div className="mb-4 text-xs text-indigo-400 font-medium">
+                  <div className="mb-4 text-xs text-accent-400 font-medium">
                     {selectedTemplates.length} template{selectedTemplates.length > 1 ? 's' : ''} selected
                   </div>
                 )}
@@ -196,14 +196,14 @@ export default function OnboardingPage() {
                       whileTap={{ scale: 0.99 }}
                       className={`relative cursor-pointer rounded-xl p-4 border-2 transition-all duration-200
                         ${selectedTemplates.includes(t.key)
-                          ? 'bg-indigo-500/10 border-indigo-500/40 shadow-lg shadow-indigo-500/10'
+                          ? 'bg-accent-500/10 border-accent-500/40 shadow-lg shadow-accent-500/10'
                           : 'bg-slate-800/50 border-white/[0.06] hover:border-white/10'}`}
                       onClick={() => !loading && toggleTemplate(t.key)}
                     >
                       {/* Check indicator */}
                       <div className={`absolute top-3 right-3 w-5 h-5 rounded-full border-2 flex items-center justify-center text-[10px] font-bold transition-all
                         ${selectedTemplates.includes(t.key)
-                          ? 'bg-indigo-500 border-indigo-500 text-white'
+                          ? 'bg-accent-500 border-accent-500 text-white'
                           : 'border-white/10 text-transparent'}`}>
                         ✓
                       </div>

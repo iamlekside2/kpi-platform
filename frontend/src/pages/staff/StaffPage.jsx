@@ -7,7 +7,7 @@ import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 
 const ROLE_CONFIG = {
-  admin: { label: 'HR / Admin', color: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20', icon: '👑', description: 'Full access: manage staff, review all appraisals, admin & MD comments' },
+  admin: { label: 'HR / Admin', color: 'bg-accent-500/10 text-accent-400 border-accent-500/20', icon: '👑', description: 'Full access: manage staff, review all appraisals, admin & MD comments' },
   lead: { label: 'Unit Head', color: 'bg-amber-500/10 text-amber-400 border-amber-500/20', icon: '👔', description: 'Can review employee appraisals and provide unit head scoring' },
   member: { label: 'Employee', color: 'bg-slate-500/10 text-slate-400 border-slate-500/20', icon: '👤', description: 'Can fill self-assessment and view own appraisals' },
 };
@@ -193,7 +193,7 @@ export default function StaffPage() {
                           onClick={() => setInviteRole(key)}
                           className={`w-full flex items-center gap-3 p-3 rounded-xl border-2 text-left transition-all cursor-pointer
                             ${inviteRole === key
-                              ? 'bg-indigo-500/10 border-indigo-500/40'
+                              ? 'bg-accent-500/10 border-accent-500/40'
                               : 'bg-slate-800/50 border-white/[0.06] hover:border-white/10'}`}
                         >
                           <span className="text-lg">{cfg.icon}</span>
@@ -231,7 +231,7 @@ export default function StaffPage() {
         {/* Staff list */}
         {loading ? (
           <div className="flex items-center justify-center py-20">
-            <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+            <div className="w-8 h-8 border-2 border-accent-500 border-t-transparent rounded-full animate-spin" />
           </div>
         ) : error ? (
           <div className="text-center py-20 text-red-400">{error}</div>
@@ -248,7 +248,7 @@ export default function StaffPage() {
                   className="flex items-center justify-between p-4 bg-slate-900/60 border border-white/[0.06] rounded-xl hover:border-white/10 transition-all"
                 >
                   <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-full bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-lg">
+                    <div className="w-10 h-10 rounded-full bg-accent-500/10 border border-accent-500/20 flex items-center justify-center text-lg">
                       {cfg.icon}
                     </div>
                     <div>

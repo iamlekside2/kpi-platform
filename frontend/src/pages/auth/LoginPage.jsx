@@ -32,7 +32,7 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-slate-950 px-4">
       {/* Background glow */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-indigo-500/5 rounded-full blur-3xl" />
+        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-accent-500/5 rounded-full blur-3xl" />
       </div>
 
       <motion.div
@@ -75,7 +75,7 @@ export default function LoginPage() {
               required
             />
             <div className="flex justify-end -mt-1 mb-2">
-              <Link to="/forgot-password" className="text-xs text-slate-500 hover:text-indigo-400 transition-colors">
+              <Link to="/forgot-password" className="text-xs text-slate-500 hover:text-accent-400 transition-colors">
                 Forgot password?
               </Link>
             </div>
@@ -88,7 +88,7 @@ export default function LoginPage() {
 
           <p className="mt-6 text-center text-sm text-slate-500">
             Don't have an account?{' '}
-            <Link to="/register" className="text-indigo-400 hover:text-indigo-300 font-medium transition-colors">
+            <Link to="/register" className="text-accent-400 hover:text-accent-300 font-medium transition-colors">
               Register
             </Link>
           </p>

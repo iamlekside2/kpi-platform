@@ -70,20 +70,20 @@ export default function DashboardPage() {
         {loading ? (
           <div className="flex items-center justify-center py-32">
             <div className="flex flex-col items-center gap-3">
-              <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+              <div className="w-8 h-8 border-2 border-accent-500 border-t-transparent rounded-full animate-spin" />
               <span className="text-sm text-slate-400">Loading dashboard...</span>
             </div>
           </div>
         ) : !activeOrg ? (
           <div className="flex flex-col items-center justify-center py-32 text-center">
-            <div className="w-20 h-20 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-3xl mb-6">
+            <div className="w-20 h-20 rounded-2xl bg-accent-500/10 border border-accent-500/20 flex items-center justify-center text-3xl mb-6">
               🚀
             </div>
             <h2 className="text-xl font-bold text-white mb-2">Welcome to KPI Platform</h2>
             <p className="text-sm text-slate-400 mb-6">You haven't set up an organisation yet.</p>
             <a
               href="/onboarding"
-              className="px-6 py-2.5 bg-indigo-500 hover:bg-indigo-400 text-white text-sm font-semibold rounded-lg shadow-lg shadow-indigo-500/20 transition-all"
+              className="px-6 py-2.5 bg-accent-500 hover:bg-accent-400 text-white text-sm font-semibold rounded-lg shadow-lg shadow-accent-500/20 transition-all"
             >
               Get Started
             </a>

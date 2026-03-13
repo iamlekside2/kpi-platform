@@ -7,7 +7,6 @@ import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
 import ResetPasswordPage from './pages/auth/ResetPasswordPage';
 import OnboardingPage from './pages/onboarding/OnboardingPage';
 import DashboardPage from './pages/dashboard/DashboardPage';
-import ImportPage from './pages/import/ImportPage';
 import SettingsPage from './pages/settings/SettingsPage';
 import AppraisalsPage from './pages/appraisals/AppraisalsPage';
 import AppraisalDetailPage from './pages/appraisals/AppraisalDetailPage';
@@ -20,7 +19,7 @@ export default function App() {
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+          <div className="w-8 h-8 border-2 border-accent-500 border-t-transparent rounded-full animate-spin" />
           <span className="text-sm text-slate-400">Loading...</span>
         </div>
       </div>
@@ -38,7 +37,6 @@ export default function App() {
       {/* Protected routes */}
       <Route path="/onboarding" element={<ProtectedRoute><OnboardingPage /></ProtectedRoute>} />
       <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
-      <Route path="/import" element={<ProtectedRoute><ImportPage /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
       <Route path="/staff" element={<ProtectedRoute><StaffPage /></ProtectedRoute>} />
       <Route path="/appraisals" element={<ProtectedRoute><AppraisalsPage /></ProtectedRoute>} />

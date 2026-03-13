@@ -18,7 +18,7 @@ const STATUS_COLORS = {
   draft: 'bg-slate-500/10 text-slate-400 border-slate-500/20',
   submitted: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
   unit_reviewed: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
-  admin_reviewed: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20',
+  admin_reviewed: 'bg-accent-500/10 text-accent-400 border-accent-500/20',
   completed: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
 };
 
@@ -212,7 +212,7 @@ export default function AppraisalDetailPage() {
     return (
       <PageWrapper>
         <div className="flex items-center justify-center py-32">
-          <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+          <div className="w-8 h-8 border-2 border-accent-500 border-t-transparent rounded-full animate-spin" />
         </div>
       </PageWrapper>
     );
@@ -232,7 +232,7 @@ export default function AppraisalDetailPage() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
           <div>
-            <button onClick={() => navigate('/appraisals')} className="text-xs text-indigo-400 hover:text-indigo-300 mb-2 flex items-center gap-1 cursor-pointer">
+            <button onClick={() => navigate('/appraisals')} className="text-xs text-accent-400 hover:text-accent-300 mb-2 flex items-center gap-1 cursor-pointer">
               &larr; Back to Appraisals
             </button>
             <h2 className="text-2xl font-bold text-white">
@@ -288,7 +288,7 @@ export default function AppraisalDetailPage() {
               onClick={() => setActiveSection(s.key)}
               className={`px-4 py-2 rounded-lg text-xs font-medium transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer
                 ${activeSection === s.key
-                  ? 'bg-indigo-500/15 text-indigo-400 shadow-sm'
+                  ? 'bg-accent-500/15 text-accent-400 shadow-sm'
                   : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]'}`}
             >
               <span>{s.icon}</span>
@@ -310,7 +310,7 @@ export default function AppraisalDetailPage() {
             {/* A1 Self-assessment questions */}
             <div className="bg-slate-900/60 border border-white/[0.06] rounded-xl p-6">
               <h3 className="text-sm font-bold text-white mb-1 flex items-center gap-2">
-                <span className="text-indigo-400">A1</span> Discussion Points
+                <span className="text-accent-400">A1</span> Discussion Points
               </h3>
               <p className="text-xs text-slate-500 mb-4">Answer these questions about your role and performance</p>
 
@@ -320,7 +320,7 @@ export default function AppraisalDetailPage() {
                     <label className="text-xs font-medium text-slate-300 block mb-1.5">{q.label}</label>
                     <textarea
                       rows={3}
-                      className="w-full px-4 py-2.5 bg-slate-800/50 border border-white/[0.06] rounded-lg text-sm text-slate-100 placeholder-slate-600 outline-none focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/20 transition-all resize-y disabled:opacity-60 disabled:cursor-not-allowed"
+                      className="w-full px-4 py-2.5 bg-slate-800/50 border border-white/[0.06] rounded-lg text-sm text-slate-100 placeholder-slate-600 outline-none focus:border-accent-500/50 focus:ring-2 focus:ring-accent-500/20 transition-all resize-y disabled:opacity-60 disabled:cursor-not-allowed"
                       value={selfAssessment[q.key] || ''}
                       onChange={(e) => setSelfAssessment({ ...selfAssessment, [q.key]: e.target.value })}
                       disabled={!canEditEmployee}
@@ -336,7 +336,7 @@ export default function AppraisalDetailPage() {
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                    <span className="text-indigo-400">A2</span> Self-Rating
+                    <span className="text-accent-400">A2</span> Self-Rating
                   </h3>
                   <p className="text-xs text-slate-500 mt-0.5">Rate yourself on the following attributes (max 10 each)</p>
                 </div>
@@ -355,7 +355,7 @@ export default function AppraisalDetailPage() {
                         type="number"
                         min="0"
                         max={attr.maxScore}
-                        className="w-16 px-2 py-1 bg-slate-800/80 border border-white/[0.08] rounded-lg text-sm text-center text-white outline-none focus:border-indigo-500/50 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                        className="w-16 px-2 py-1 bg-slate-800/80 border border-white/[0.08] rounded-lg text-sm text-center text-white outline-none focus:border-accent-500/50 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
                         value={selfRatings[attr.key] ?? ''}
                         onChange={(e) => {
                           const val = Math.min(Number(e.target.value), attr.maxScore);
@@ -398,7 +398,7 @@ export default function AppraisalDetailPage() {
                     <label className="text-xs font-medium text-slate-300 block mb-1.5">{q.label}</label>
                     <textarea
                       rows={3}
-                      className="w-full px-4 py-2.5 bg-slate-800/50 border border-white/[0.06] rounded-lg text-sm text-slate-100 placeholder-slate-600 outline-none focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/20 transition-all resize-y disabled:opacity-60 disabled:cursor-not-allowed"
+                      className="w-full px-4 py-2.5 bg-slate-800/50 border border-white/[0.06] rounded-lg text-sm text-slate-100 placeholder-slate-600 outline-none focus:border-accent-500/50 focus:ring-2 focus:ring-accent-500/20 transition-all resize-y disabled:opacity-60 disabled:cursor-not-allowed"
                       value={technicalAnswers[q.key] || ''}
                       onChange={(e) => setTechnicalAnswers({ ...technicalAnswers, [q.key]: e.target.value })}
                       disabled={!canEditEmployee}
@@ -482,7 +482,7 @@ export default function AppraisalDetailPage() {
               <h3 className="text-sm font-bold text-white mb-3">Comment by Unit Head</h3>
               <textarea
                 rows={4}
-                className="w-full px-4 py-2.5 bg-slate-800/50 border border-white/[0.06] rounded-lg text-sm text-slate-100 placeholder-slate-600 outline-none focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/20 transition-all resize-y disabled:opacity-60 disabled:cursor-not-allowed"
+                className="w-full px-4 py-2.5 bg-slate-800/50 border border-white/[0.06] rounded-lg text-sm text-slate-100 placeholder-slate-600 outline-none focus:border-accent-500/50 focus:ring-2 focus:ring-accent-500/20 transition-all resize-y disabled:opacity-60 disabled:cursor-not-allowed"
                 value={unitHeadComment}
                 onChange={(e) => setUnitHeadComment(e.target.value)}
                 disabled={!canEditUnitHead}
@@ -503,7 +503,7 @@ export default function AppraisalDetailPage() {
                 <h3 className="text-sm font-bold text-white mb-3">Comment by Head, Administration</h3>
                 <textarea
                   rows={4}
-                  className="w-full px-4 py-2.5 bg-slate-800/50 border border-white/[0.06] rounded-lg text-sm text-slate-100 placeholder-slate-600 outline-none focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/20 transition-all resize-y disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="w-full px-4 py-2.5 bg-slate-800/50 border border-white/[0.06] rounded-lg text-sm text-slate-100 placeholder-slate-600 outline-none focus:border-accent-500/50 focus:ring-2 focus:ring-accent-500/20 transition-all resize-y disabled:opacity-60 disabled:cursor-not-allowed"
                   value={adminComment}
                   onChange={(e) => setAdminComment(e.target.value)}
                   disabled={!canEditAdmin}
@@ -533,7 +533,7 @@ export default function AppraisalDetailPage() {
 
               <textarea
                 rows={5}
-                className="w-full px-4 py-2.5 bg-slate-800/50 border border-white/[0.06] rounded-lg text-sm text-slate-100 placeholder-slate-600 outline-none focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/20 transition-all resize-y disabled:opacity-60 disabled:cursor-not-allowed"
+                className="w-full px-4 py-2.5 bg-slate-800/50 border border-white/[0.06] rounded-lg text-sm text-slate-100 placeholder-slate-600 outline-none focus:border-accent-500/50 focus:ring-2 focus:ring-accent-500/20 transition-all resize-y disabled:opacity-60 disabled:cursor-not-allowed"
                 value={mdComment}
                 onChange={(e) => setMdComment(e.target.value)}
                 disabled={!canEditMd}
@@ -553,7 +553,7 @@ export default function AppraisalDetailPage() {
                   type="number"
                   min="0"
                   max="100"
-                  className="w-24 px-4 py-3 bg-slate-800/80 border border-white/[0.08] rounded-xl text-xl text-center font-bold text-white outline-none focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/20 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="w-24 px-4 py-3 bg-slate-800/80 border border-white/[0.08] rounded-xl text-xl text-center font-bold text-white outline-none focus:border-accent-500/50 focus:ring-2 focus:ring-accent-500/20 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
                   value={mdScore}
                   onChange={(e) => setMdScore(Math.min(100, Math.max(0, Number(e.target.value) || 0)))}
                   disabled={!canEditMd}
@@ -591,7 +591,7 @@ export default function AppraisalDetailPage() {
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
                 <div className="p-4 bg-slate-800/30 rounded-xl border border-white/[0.04] text-center">
-                  <div className="text-[10px] text-indigo-400 uppercase tracking-wider font-bold mb-1">Self Rating (30%)</div>
+                  <div className="text-[10px] text-accent-400 uppercase tracking-wider font-bold mb-1">Self Rating (30%)</div>
                   <div className="text-2xl font-bold text-white tabular-nums">{selfRatingTotal}</div>
                   <div className="text-[10px] text-slate-500">/ {formStructure.selfRatingAttributes.length * 10}</div>
                   <div className="text-xs text-slate-400 mt-1">

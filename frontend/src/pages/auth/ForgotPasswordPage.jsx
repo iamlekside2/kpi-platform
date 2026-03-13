@@ -38,7 +38,7 @@ export default function ForgotPasswordPage() {
       >
         <div className="bg-slate-900 border border-white/[0.06] rounded-2xl p-8 shadow-2xl shadow-black/20">
           <div className="text-center mb-8">
-            <div className="w-14 h-14 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-2xl mx-auto mb-4">
+            <div className="w-14 h-14 rounded-2xl bg-accent-500/10 border border-accent-500/20 flex items-center justify-center text-2xl mx-auto mb-4">
               🔑
             </div>
             <h1 className="text-2xl font-bold text-white mb-2">Forgot Password?</h1>
@@ -93,7 +93,7 @@ export default function ForgotPasswordPage() {
 
           <p className="mt-6 text-center text-sm text-slate-500">
             Remember your password?{' '}
-            <Link to="/login" className="text-indigo-400 hover:text-indigo-300 font-medium transition-colors">
+            <Link to="/login" className="text-accent-400 hover:text-accent-300 font-medium transition-colors">
               Sign In
             </Link>
           </p>

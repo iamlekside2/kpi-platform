@@ -113,4 +113,22 @@ async function removeMember(req, res) {
   }
 }
 
-module.exports = { createOrg, getOrg, inviteToOrg, getUserOrgs, getMembers, updateMemberRole, removeMember };
+async function updateThemeColor(req, res) {
+  try {
+    const { themeColor } = req.body;
+    const VALID_COLORS = ['indigo', 'blue', 'cyan', 'emerald', 'amber', 'rose', 'purple', 'pink', 'violet', 'teal'];
+    if (!themeColor || !VALID_COLORS.includes(themeColor)) {
+      return res.status(400).json({ error: 'Invalid theme colour' });
+    }
+    const result = await orgsService.updateThemeColor(req.params.id, themeColor, req.user.userId);
+    return res.json(result);
+  } catch (err) {
+    if (err.message === 'Only admins can change theme') {
+      return res.status(403).json({ error: err.message });
+    }
+    console.error('Update theme error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
+module.exports = { createOrg, getOrg, inviteToOrg, getUserOrgs, getMembers, updateMemberRole, removeMember, updateThemeColor };

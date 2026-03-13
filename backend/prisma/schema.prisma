@@ -22,6 +22,7 @@ model Organisation {
   id           String        @id @default(uuid())
   name         String
   industry     String        @default("")
+  themeColor   String        @default("indigo")
   members      OrgMember[]
   kpis         KPI[]
   integrations Integration[]

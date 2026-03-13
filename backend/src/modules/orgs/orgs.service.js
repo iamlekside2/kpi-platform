@@ -209,4 +209,21 @@ async function removeMember(orgId, memberId, requesterId) {
   return { success: true };
 }
 
-module.exports = { createOrg, getOrgById, inviteToOrg, getUserOrgs, getOrgMembers, updateMemberRole, removeMember };
+// ── Update theme colour ──
+async function updateThemeColor(orgId, themeColor, requesterId) {
+  const requester = await prisma.orgMember.findUnique({
+    where: { userId_orgId: { userId: requesterId, orgId } },
+  });
+  if (!requester || requester.role !== 'admin') {
+    throw new Error('Only admins can change theme');
+  }
+
+  const org = await prisma.organisation.update({
+    where: { id: orgId },
+    data: { themeColor },
+  });
+
+  return { themeColor: org.themeColor };
+}
+
+module.exports = { createOrg, getOrgById, inviteToOrg, getUserOrgs, getOrgMembers, updateMemberRole, removeMember, updateThemeColor };

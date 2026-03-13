@@ -36,11 +36,11 @@ export default function KPICard({ kpi, onUpdate, onDelete }) {
       animate={{ opacity: 1, y: 0 }}
       whileHover={{ y: -2 }}
       transition={{ duration: 0.2 }}
-      className="group bg-slate-900/60 backdrop-blur-sm border border-white/[0.06] rounded-xl p-5 hover:border-white/10 hover:shadow-lg hover:shadow-indigo-500/5 transition-all duration-300"
+      className="group bg-slate-900/60 backdrop-blur-sm border border-white/[0.06] rounded-xl p-5 hover:border-white/10 hover:shadow-lg hover:shadow-accent-500/5 transition-all duration-300"
     >
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
-        <span className="text-[10px] font-semibold uppercase tracking-wider text-indigo-400/70 bg-indigo-500/10 px-2 py-0.5 rounded-full">
+        <span className="text-[10px] font-semibold uppercase tracking-wider text-accent-400/70 bg-accent-500/10 px-2 py-0.5 rounded-full">
           {kpi.category}
         </span>
         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -71,7 +71,7 @@ export default function KPICard({ kpi, onUpdate, onDelete }) {
         <div className="space-y-2">
           <input
             type="number"
-            className="w-full px-3 py-2 bg-slate-800/80 border border-indigo-500/30 rounded-lg text-sm text-white outline-none focus:border-indigo-500/60 focus:ring-2 focus:ring-indigo-500/20 transition-all"
+            className="w-full px-3 py-2 bg-slate-800/80 border border-accent-500/30 rounded-lg text-sm text-white outline-none focus:border-accent-500/60 focus:ring-2 focus:ring-accent-500/20 transition-all"
             value={editValue}
             onChange={(e) => setEditValue(e.target.value)}
             onKeyDown={handleKeyDown}
@@ -81,7 +81,7 @@ export default function KPICard({ kpi, onUpdate, onDelete }) {
             <button
               onClick={handleSave}
               disabled={saving}
-              className="flex-1 py-1.5 bg-indigo-500 hover:bg-indigo-400 text-white text-xs font-semibold rounded-lg transition-colors disabled:opacity-50 cursor-pointer"
+              className="flex-1 py-1.5 bg-accent-500 hover:bg-accent-400 text-white text-xs font-semibold rounded-lg transition-colors disabled:opacity-50 cursor-pointer"
             >
               {saving ? '...' : 'Save'}
             </button>
@@ -107,7 +107,7 @@ export default function KPICard({ kpi, onUpdate, onDelete }) {
                   initial={{ width: 0 }}
                   animate={{ width: `${progress}%` }}
                   transition={{ duration: 0.8, ease: 'easeOut' }}
-                  className={`h-full rounded-full ${isOverTarget ? 'bg-emerald-400' : 'bg-indigo-500'}`}
+                  className={`h-full rounded-full ${isOverTarget ? 'bg-emerald-400' : 'bg-accent-500'}`}
                 />
               </div>
             </div>

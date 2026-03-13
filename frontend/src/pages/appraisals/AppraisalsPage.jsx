@@ -19,7 +19,7 @@ const STATUS_COLORS = {
   draft: 'bg-slate-500/10 text-slate-400',
   submitted: 'bg-amber-500/10 text-amber-400',
   unit_reviewed: 'bg-blue-500/10 text-blue-400',
-  admin_reviewed: 'bg-indigo-500/10 text-indigo-400',
+  admin_reviewed: 'bg-accent-500/10 text-accent-400',
   completed: 'bg-emerald-500/10 text-emerald-400',
 };
 
@@ -156,7 +156,7 @@ export default function AppraisalsPage() {
                       value={selectedEmployee}
                       onChange={(e) => setSelectedEmployee(e.target.value)}
                       required
-                      className="w-full px-4 py-2.5 bg-slate-800/50 border border-white/[0.06] rounded-lg text-sm text-slate-100 outline-none focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/20 transition-all appearance-none cursor-pointer"
+                      className="w-full px-4 py-2.5 bg-slate-800/50 border border-white/[0.06] rounded-lg text-sm text-slate-100 outline-none focus:border-accent-500/50 focus:ring-2 focus:ring-accent-500/20 transition-all appearance-none cursor-pointer"
                     >
                       <option value="" className="bg-slate-800">Select employee...</option>
                       {members.map((m) => (
@@ -178,7 +178,7 @@ export default function AppraisalsPage() {
                           onClick={() => setDepartment(d.key)}
                           className={`p-3 rounded-xl border-2 text-center transition-all cursor-pointer
                             ${department === d.key
-                              ? 'bg-indigo-500/10 border-indigo-500/40 shadow-lg shadow-indigo-500/5'
+                              ? 'bg-accent-500/10 border-accent-500/40 shadow-lg shadow-accent-500/5'
                               : 'bg-slate-800/50 border-white/[0.06] hover:border-white/10'}`}
                         >
                           <span className="text-xl block mb-1">{d.icon}</span>
@@ -215,7 +215,7 @@ export default function AppraisalsPage() {
         {/* Appraisals list */}
         {loading ? (
           <div className="flex items-center justify-center py-20">
-            <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+            <div className="w-8 h-8 border-2 border-accent-500 border-t-transparent rounded-full animate-spin" />
           </div>
         ) : appraisals.length === 0 ? (
           <div className="flex flex-col items-center py-20 text-center">
@@ -242,7 +242,7 @@ export default function AppraisalsPage() {
                 className="flex items-center justify-between p-4 bg-slate-900/60 border border-white/[0.06] rounded-xl hover:border-white/10 cursor-pointer transition-all"
               >
                 <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-lg">
+                  <div className="w-10 h-10 rounded-xl bg-accent-500/10 border border-accent-500/20 flex items-center justify-center text-lg">
                     {DEPT_ICONS[a.department] || '📝'}
                   </div>
                   <div>

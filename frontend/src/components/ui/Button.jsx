@@ -1,9 +1,9 @@
 import { motion } from 'framer-motion';
 
 const variants = {
-  primary: 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/20 hover:bg-indigo-400 hover:shadow-indigo-500/30',
+  primary: 'bg-accent-500 text-white shadow-lg shadow-accent-500/20 hover:bg-accent-400 hover:shadow-accent-500/30',
   secondary: 'bg-white/5 text-slate-300 border border-white/10 hover:bg-white/10 hover:text-white',
-  outline: 'bg-transparent border border-indigo-500/50 text-indigo-400 hover:bg-indigo-500/10',
+  outline: 'bg-transparent border border-accent-500/50 text-accent-400 hover:bg-accent-500/10',
   danger: 'bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20',
 };
 

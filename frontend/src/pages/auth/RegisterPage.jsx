@@ -39,7 +39,7 @@ export default function RegisterPage() {
     <div className="min-h-screen flex items-center justify-center bg-slate-950 px-4">
       {/* Background glow */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-indigo-500/5 rounded-full blur-3xl" />
+        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-accent-500/5 rounded-full blur-3xl" />
       </div>
 
       <motion.div
@@ -98,7 +98,7 @@ export default function RegisterPage() {
 
           <p className="mt-6 text-center text-sm text-slate-500">
             Already have an account?{' '}
-            <Link to="/login" className="text-indigo-400 hover:text-indigo-300 font-medium transition-colors">
+            <Link to="/login" className="text-accent-400 hover:text-accent-300 font-medium transition-colors">
               Sign In
             </Link>
           </p>

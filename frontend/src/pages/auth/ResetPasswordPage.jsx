@@ -57,7 +57,7 @@ export default function ResetPasswordPage() {
             </p>
             <Link
               to="/forgot-password"
-              className="inline-block px-6 py-2.5 bg-indigo-500 hover:bg-indigo-400 text-white text-sm font-semibold rounded-lg shadow-lg shadow-indigo-500/20 transition-all"
+              className="inline-block px-6 py-2.5 bg-accent-500 hover:bg-accent-400 text-white text-sm font-semibold rounded-lg shadow-lg shadow-accent-500/20 transition-all"
             >
               Request New Link
             </Link>
@@ -105,7 +105,7 @@ export default function ResetPasswordPage() {
               <p className="text-xs text-slate-500 mb-4">Redirecting to login page...</p>
               <Link
                 to="/login"
-                className="text-indigo-400 hover:text-indigo-300 font-medium text-sm transition-colors"
+                className="text-accent-400 hover:text-accent-300 font-medium text-sm transition-colors"
               >
                 Go to Login Now
               </Link>
@@ -139,7 +139,7 @@ export default function ResetPasswordPage() {
           {!success && (
             <p className="mt-6 text-center text-sm text-slate-500">
               Remember your password?{' '}
-              <Link to="/login" className="text-indigo-400 hover:text-indigo-300 font-medium transition-colors">
+              <Link to="/login" className="text-accent-400 hover:text-accent-300 font-medium transition-colors">
                 Sign In
               </Link>
             </p>

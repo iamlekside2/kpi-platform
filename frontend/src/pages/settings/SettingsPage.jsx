@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../../services/api';
+import { useTheme } from '../../context/ThemeContext';
+import { useAuth } from '../../context/AuthContext';
 import PageWrapper from '../../components/layout/PageWrapper';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
@@ -12,13 +14,17 @@ const TOOLS = [
 ];
 
 const TABS = [
+  { key: 'appearance', label: 'Appearance', icon: '🎨' },
   { key: 'integrations', label: 'Integrations', icon: '🔗' },
   { key: 'alerts', label: 'Alerts', icon: '🔔' },
   { key: 'logs', label: 'Sync History', icon: '📋' },
 ];
 
 export default function SettingsPage() {
-  const [tab, setTab] = useState('integrations');
+  const { themeColor, updateThemeColor, COLOR_MAP } = useTheme();
+  const { orgRole } = useAuth();
+  const isAdmin = orgRole === 'admin';
+  const [tab, setTab] = useState('appearance');
   const [orgId, setOrgId] = useState(null);
   const [integrations, setIntegrations] = useState([]);
   const [syncLogs, setSyncLogs] = useState([]);
@@ -124,7 +130,7 @@ export default function SettingsPage() {
               onClick={() => setTab(t.key)}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 cursor-pointer
                 ${tab === t.key
-                  ? 'bg-indigo-500/15 text-indigo-400 shadow-sm'
+                  ? 'bg-accent-500/15 text-accent-400 shadow-sm'
                   : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]'}`}
             >
               <span>{t.icon}</span>
@@ -156,6 +162,59 @@ export default function SettingsPage() {
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* Appearance Tab */}
+        {tab === 'appearance' && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+            <h3 className="text-lg font-semibold text-white mb-2">Brand Colour</h3>
+            <p className="text-sm text-slate-400 mb-6">
+              Choose an accent colour for your organisation. This changes buttons, links, and highlights across the entire app.
+            </p>
+
+            <div className="grid grid-cols-5 sm:grid-cols-10 gap-3">
+              {Object.entries(COLOR_MAP).map(([name, colors]) => (
+                <button
+                  key={name}
+                  onClick={() => isAdmin && updateThemeColor(name)}
+                  disabled={!isAdmin}
+                  className={`group relative w-12 h-12 rounded-xl transition-all duration-200
+                    ${themeColor === name
+                      ? 'ring-2 ring-white ring-offset-2 ring-offset-slate-950 scale-110'
+                      : 'hover:scale-105'}
+                    ${!isAdmin ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                  style={{ backgroundColor: colors[500] }}
+                  title={name.charAt(0).toUpperCase() + name.slice(1)}
+                >
+                  {themeColor === name && (
+                    <span className="absolute inset-0 flex items-center justify-center text-white text-sm font-bold">
+                      ✓
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+
+            <div className="mt-6 p-4 bg-slate-900/60 border border-white/[0.06] rounded-xl">
+              <p className="text-xs text-slate-500 mb-3">Preview</p>
+              <div className="flex items-center gap-3 flex-wrap">
+                <span className="px-4 py-2 bg-accent-500 text-white text-sm font-semibold rounded-lg shadow-lg shadow-accent-500/20">
+                  Primary Button
+                </span>
+                <span className="px-4 py-2 bg-transparent border border-accent-500/50 text-accent-400 text-sm font-semibold rounded-lg">
+                  Outline Button
+                </span>
+                <span className="text-sm text-accent-400 font-medium">Accent Link</span>
+                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-accent-500/10 text-accent-400 border border-accent-500/20">
+                  Badge
+                </span>
+              </div>
+            </div>
+
+            {!isAdmin && (
+              <p className="mt-4 text-xs text-slate-500">Only administrators can change the brand colour.</p>
+            )}
+          </motion.div>
+        )}
 
         {/* Integrations Tab */}
         {tab === 'integrations' && (
@@ -276,15 +335,15 @@ export default function SettingsPage() {
                           onChange={(e) => toggleAlert(kpi.id, e.target.checked)}
                           className="sr-only peer"
                         />
-                        <div className="w-9 h-5 bg-white/[0.08] rounded-full peer-checked:bg-indigo-500/40 transition-colors" />
-                        <div className="absolute top-0.5 left-0.5 w-4 h-4 bg-slate-400 rounded-full peer-checked:bg-indigo-400 peer-checked:translate-x-4 transition-all" />
+                        <div className="w-9 h-5 bg-white/[0.08] rounded-full peer-checked:bg-accent-500/40 transition-colors" />
+                        <div className="absolute top-0.5 left-0.5 w-4 h-4 bg-slate-400 rounded-full peer-checked:bg-accent-400 peer-checked:translate-x-4 transition-all" />
                       </div>
                       <span className="text-xs text-slate-400">Alert</span>
                     </label>
                     {kpi.alertEnabled && (
                       <input
                         type="number"
-                        className="w-20 px-2 py-1 bg-slate-800/80 border border-white/[0.08] rounded-lg text-xs text-slate-300 outline-none focus:border-indigo-500/50 transition-all"
+                        className="w-20 px-2 py-1 bg-slate-800/80 border border-white/[0.08] rounded-lg text-xs text-slate-300 outline-none focus:border-accent-500/50 transition-all"
                         value={kpi.alertThreshold ?? ''}
                         placeholder="Threshold"
                         onBlur={(e) => e.target.value && setThreshold(kpi.id, e.target.value)}

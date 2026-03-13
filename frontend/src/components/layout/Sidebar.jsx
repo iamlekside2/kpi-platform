@@ -6,7 +6,6 @@ const allLinks = [
   { to: '/dashboard', label: 'Dashboard', icon: '📊' },
   { to: '/staff', label: 'Staff', icon: '👥', roles: ['admin', 'lead'] },
   { to: '/appraisals', label: 'Appraisals', icon: '📋' },
-  { to: '/import', label: 'CSV Import', icon: '📁', roles: ['admin', 'lead'] },
   { to: '/settings', label: 'Settings', icon: '⚙️' },
 ];
 
@@ -22,7 +21,7 @@ export default function Sidebar() {
           animate={{ opacity: 1, x: 0 }}
           className="text-lg font-bold text-white tracking-tight"
         >
-          <span className="text-indigo-400">KPI</span> Platform
+          <span className="text-accent-400">KPI</span> Platform
         </motion.h2>
       </div>
 
@@ -35,7 +34,7 @@ export default function Sidebar() {
             className={({ isActive }) =>
               `group flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200
               ${isActive
-                ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 shadow-sm shadow-indigo-500/10'
+                ? 'bg-accent-500/10 text-accent-400 border border-accent-500/20 shadow-sm shadow-accent-500/10'
                 : 'text-slate-400 hover:bg-white/[0.04] hover:text-slate-200 border border-transparent'}`
             }
           >
@@ -51,7 +50,7 @@ export default function Sidebar() {
                 {isActive && (
                   <motion.div
                     layoutId="activeIndicator"
-                    className="ml-auto w-1.5 h-1.5 rounded-full bg-indigo-400"
+                    className="ml-auto w-1.5 h-1.5 rounded-full bg-accent-400"
                   />
                 )}
               </motion.div>
