@@ -32,6 +32,9 @@ export default function SettingsPage() {
   const [kpis, setKpis] = useState([]);
   const [connectForm, setConnectForm] = useState(null);
   const [formData, setFormData] = useState({});
+  const [connecting, setConnecting] = useState(false);
+  const [syncingMembers, setSyncingMembers] = useState(false);
+  const [memberSyncResult, setMemberSyncResult] = useState(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
@@ -56,6 +59,7 @@ export default function SettingsPage() {
   async function handleConnect(e) {
     e.preventDefault();
     setError('');
+    setConnecting(true);
     try {
       const payload = {
         tool: connectForm,
@@ -71,10 +75,12 @@ export default function SettingsPage() {
       setIntegrations((prev) => [data, ...prev]);
       setConnectForm(null);
       setFormData({});
-      setSuccess('Integration connected!');
+      setSuccess('Integration connected and verified!');
       setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to connect');
+    } finally {
+      setConnecting(false);
     }
   }
 
@@ -97,6 +103,32 @@ export default function SettingsPage() {
       setIntegrations((prev) => prev.filter((i) => i.id !== id));
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to delete');
+    }
+  }
+
+  async function handleSyncMembers(integrationId) {
+    setError('');
+    setMemberSyncResult(null);
+    setSyncingMembers(true);
+    try {
+      // Default: last 6 months
+      const today = new Date();
+      const sixMonthsAgo = new Date(today);
+      sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+      const periodFrom = sixMonthsAgo.toISOString().split('T')[0];
+      const periodTo = today.toISOString().split('T')[0];
+
+      const { data } = await api.post(`/integrations/${integrationId}/sync-members`, {
+        periodFrom,
+        periodTo,
+      });
+      setMemberSyncResult(data);
+      setSuccess(`Synced staff tasks: ${data.matched} of ${data.totalAdoUsers} ADO users matched`);
+      setTimeout(() => setSuccess(''), 5000);
+    } catch (err) {
+      setError(err.response?.data?.error || 'Staff task sync failed');
+    } finally {
+      setSyncingMembers(false);
     }
   }
 
@@ -295,10 +327,34 @@ export default function SettingsPage() {
                             Last synced: {new Date(connected.lastSyncedAt).toLocaleString()}
                           </p>
                         )}
-                        <div className="flex gap-2 mt-3">
-                          <Button onClick={() => handleSync(connected.id)}>Sync Now</Button>
+                        <div className="flex flex-wrap gap-2 mt-3">
+                          <Button onClick={() => handleSync(connected.id)}>Sync KPIs</Button>
+                          {tool.key === 'ado' && (
+                            <Button
+                              variant="outline"
+                              onClick={() => handleSyncMembers(connected.id)}
+                              disabled={syncingMembers}
+                            >
+                              {syncingMembers ? 'Syncing...' : 'Sync Staff Tasks'}
+                            </Button>
+                          )}
                           <Button variant="danger" onClick={() => handleDeleteIntegration(connected.id)}>Disconnect</Button>
                         </div>
+                        {memberSyncResult && tool.key === 'ado' && (
+                          <div className="mt-3 p-3 bg-surface-950/50 rounded-lg border border-white/[0.04]">
+                            <p className="text-xs text-slate-300">
+                              Matched <span className="text-accent-400 font-bold">{memberSyncResult.matched}</span> of {memberSyncResult.totalAdoUsers} ADO users
+                            </p>
+                            {memberSyncResult.unmatchedEmails?.length > 0 && (
+                              <div className="mt-2">
+                                <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Unmatched ADO emails:</p>
+                                {memberSyncResult.unmatchedEmails.map((e) => (
+                                  <span key={e} className="inline-block text-[10px] text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full mr-1 mb-1">{e}</span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     ) : (
                       <Button variant="outline" onClick={() => { setConnectForm(tool.key); setFormData({}); }}>
@@ -342,8 +398,10 @@ export default function SettingsPage() {
                         />
                       ))}
                       <div className="flex gap-2 mt-2">
-                        <Button type="submit">Connect</Button>
-                        <Button variant="secondary" onClick={() => setConnectForm(null)}>Cancel</Button>
+                        <Button type="submit" disabled={connecting}>
+                          {connecting ? 'Verifying...' : 'Connect'}
+                        </Button>
+                        <Button variant="secondary" onClick={() => setConnectForm(null)} disabled={connecting}>Cancel</Button>
                       </div>
                     </form>
                   </motion.div>

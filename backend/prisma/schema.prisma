@@ -8,16 +8,17 @@ datasource db {
 }
 
 model User {
-  id                  String         @id @default(uuid())
-  email               String         @unique
+  id                  String             @id @default(uuid())
+  email               String             @unique
   name                String
   password            String
   orgs                OrgMember[]
-  employeeAppraisals  Appraisal[]    @relation("EmployeeAppraisals")
-  reviewerAppraisals  Appraisal[]    @relation("ReviewerAppraisals")
+  employeeAppraisals  Appraisal[]        @relation("EmployeeAppraisals")
+  reviewerAppraisals  Appraisal[]        @relation("ReviewerAppraisals")
   notifications       Notification[]
   auditLogs           AuditLog[]
-  createdAt           DateTime       @default(now())
+  memberWorkItems     MemberWorkItems[]
+  createdAt           DateTime           @default(now())
 }
 
 model Organisation {
@@ -28,12 +29,13 @@ model Organisation {
   members       OrgMember[]
   departments   Department[]
   kpis          KPI[]
-  integrations  Integration[]
-  syncLogs      SyncLog[]
-  appraisals    Appraisal[]
-  notifications Notification[]
-  auditLogs     AuditLog[]
-  createdAt     DateTime       @default(now())
+  integrations    Integration[]
+  syncLogs        SyncLog[]
+  appraisals      Appraisal[]
+  notifications   Notification[]
+  auditLogs       AuditLog[]
+  memberWorkItems MemberWorkItems[]
+  createdAt       DateTime       @default(now())
 }
 
 model OrgMember {
@@ -87,11 +89,12 @@ model Integration {
   fieldMap     Json         @default("{}")
   status       String       @default("connected") // connected | error
   lastSyncedAt DateTime?
-  orgId        String
-  org          Organisation @relation(fields: [orgId], references: [id])
-  syncLogs     SyncLog[]
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
+  orgId           String
+  org             Organisation    @relation(fields: [orgId], references: [id])
+  syncLogs        SyncLog[]
+  memberWorkItems MemberWorkItems[]
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
 }
 
 model SyncLog {
@@ -182,4 +185,28 @@ model AuditLog {
   orgId       String
   org         Organisation @relation(fields: [orgId], references: [id])
   createdAt   DateTime     @default(now())
+}
+
+// ── Member Work Items (ADO Integration) ───────────────────────
+
+model MemberWorkItems {
+  id               String       @id @default(uuid())
+  userId           String
+  user             User         @relation(fields: [userId], references: [id])
+  orgId            String
+  org              Organisation @relation(fields: [orgId], references: [id])
+  externalEmail    String       // ADO AssignedTo email/uniqueName
+  items            Json         // Array of { id, title, state, type, storyPoints, changedDate }
+  totalItems       Int          @default(0)
+  completedItems   Int          @default(0)
+  activeItems      Int          @default(0)
+  totalStoryPoints Float?
+  periodFrom       DateTime
+  periodTo         DateTime
+  integrationId    String
+  integration      Integration  @relation(fields: [integrationId], references: [id])
+  syncedAt         DateTime     @default(now())
+
+  @@unique([userId, orgId, integrationId, periodFrom, periodTo])
+  @@index([orgId, periodFrom, periodTo])
 }

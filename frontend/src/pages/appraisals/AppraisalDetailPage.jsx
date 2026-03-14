@@ -39,6 +39,7 @@ export default function AppraisalDetailPage() {
   const [success, setSuccess] = useState('');
   const [activeSection, setActiveSection] = useState(null); // set after load based on role
   const [exporting, setExporting] = useState(false);
+  const [workItemData, setWorkItemData] = useState(null);
 
   // Local form state
   const [selfAssessment, setSelfAssessment] = useState({});
@@ -78,6 +79,23 @@ export default function AppraisalDetailPage() {
     }
     load();
   }, [id]);
+
+  // Fetch ADO work items for this employee's review period
+  useEffect(() => {
+    async function loadWorkItems() {
+      if (!appraisal) return;
+      try {
+        const { data } = await api.get(
+          `/integrations/org/${appraisal.orgId}/member/${appraisal.employeeId}/work-items`,
+          { params: { periodFrom: appraisal.reviewPeriodFrom, periodTo: appraisal.reviewPeriodTo } }
+        );
+        if (data) setWorkItemData(data);
+      } catch {
+        // Silently fail — work items are supplementary
+      }
+    }
+    loadWorkItems();
+  }, [appraisal]);
 
   // ── Role-based access logic ──
   const isEmployee = appraisal?.employeeId === user?.id;
@@ -123,6 +141,7 @@ export default function AppraisalDetailPage() {
   const SECTIONS = [
     ...(canSeeSection1 ? [{ key: 'section1', label: 'Self Assessment', icon: '📝' }] : []),
     ...(canSeeDeptQuestions && hasDeptQuestions ? [{ key: 'department', label: deptLabel, icon: appraisal?.department === 'sales' ? '💰' : '💻' }] : []),
+    ...((isUnitHead || isAdmin) && workItemData ? [{ key: 'ado_tasks', label: 'Azure DevOps Tasks', icon: '🔷' }] : []),
     ...(canSeeSection2 ? [{ key: 'section2', label: 'Unit Head Review', icon: '👔' }] : []),
     ...(canSeeSection3 ? [{ key: 'section3', label: 'Management', icon: '🏢' }] : []),
   ];
@@ -432,6 +451,84 @@ export default function AppraisalDetailPage() {
                   </div>
                 ))}
               </div>
+            </div>
+          </motion.div>
+        )}
+
+        {/* ── ADO TASKS TAB ── */}
+        {activeSection === 'ado_tasks' && workItemData && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+            {/* Summary cards */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <div className="p-4 bg-surface-900/60 border border-white/[0.06] rounded-xl text-center">
+                <div className="text-2xl font-bold text-white tabular-nums">{workItemData.totalItems}</div>
+                <div className="text-[10px] text-slate-500 uppercase tracking-wider mt-1">Total Items</div>
+              </div>
+              <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-center">
+                <div className="text-2xl font-bold text-emerald-400 tabular-nums">{workItemData.completedItems}</div>
+                <div className="text-[10px] text-slate-500 uppercase tracking-wider mt-1">Completed</div>
+              </div>
+              <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-xl text-center">
+                <div className="text-2xl font-bold text-blue-400 tabular-nums">{workItemData.activeItems}</div>
+                <div className="text-[10px] text-slate-500 uppercase tracking-wider mt-1">Active</div>
+              </div>
+              <div className="p-4 bg-accent-500/10 border border-accent-500/20 rounded-xl text-center">
+                <div className="text-2xl font-bold text-accent-400 tabular-nums">{workItemData.totalStoryPoints ?? '--'}</div>
+                <div className="text-[10px] text-slate-500 uppercase tracking-wider mt-1">Story Points</div>
+              </div>
+            </div>
+
+            {/* Work items table */}
+            <div className="bg-surface-900/60 border border-white/[0.06] rounded-xl overflow-hidden">
+              <div className="px-5 py-3 border-b border-white/[0.06] flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-bold text-white">Work Items from Azure DevOps</h3>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    ADO email: {workItemData.externalEmail} &middot; Synced: {new Date(workItemData.syncedAt).toLocaleString()}
+                  </p>
+                </div>
+              </div>
+
+              {(workItemData.items || []).length === 0 ? (
+                <div className="px-5 py-8 text-center text-sm text-slate-500">No work items found for this period.</div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-white/[0.06]">
+                        <th className="text-left px-4 py-2.5 text-[10px] uppercase tracking-wider font-semibold text-slate-500 bg-surface-900/80">ID</th>
+                        <th className="text-left px-4 py-2.5 text-[10px] uppercase tracking-wider font-semibold text-slate-500 bg-surface-900/80">Title</th>
+                        <th className="text-left px-4 py-2.5 text-[10px] uppercase tracking-wider font-semibold text-slate-500 bg-surface-900/80">Type</th>
+                        <th className="text-left px-4 py-2.5 text-[10px] uppercase tracking-wider font-semibold text-slate-500 bg-surface-900/80">State</th>
+                        <th className="text-left px-4 py-2.5 text-[10px] uppercase tracking-wider font-semibold text-slate-500 bg-surface-900/80">Points</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {workItemData.items.map((item, i) => {
+                        const state = (item.state || '').toLowerCase();
+                        const stateStyle = (state === 'done' || state === 'closed' || state === 'resolved')
+                          ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                          : (state === 'active' || state === 'in progress')
+                            ? 'bg-blue-500/10 text-blue-400 border-blue-500/20'
+                            : 'bg-slate-500/10 text-slate-400 border-slate-500/20';
+                        return (
+                          <tr key={item.id} className={i < workItemData.items.length - 1 ? 'border-b border-white/[0.04]' : ''}>
+                            <td className="px-4 py-2.5 text-xs text-slate-500 tabular-nums">#{item.id}</td>
+                            <td className="px-4 py-2.5 text-sm text-slate-200 max-w-xs truncate">{item.title}</td>
+                            <td className="px-4 py-2.5 text-xs text-slate-400">{item.type}</td>
+                            <td className="px-4 py-2.5">
+                              <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${stateStyle}`}>
+                                {item.state}
+                              </span>
+                            </td>
+                            <td className="px-4 py-2.5 text-xs text-slate-400 tabular-nums">{item.storyPoints ?? '--'}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           </motion.div>
         )}

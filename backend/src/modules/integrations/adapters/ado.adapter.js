@@ -84,4 +84,94 @@ async function testConnection({ orgUrl, accessToken }) {
   return { success: true, projects: (data.value || []).map((p) => p.name) };
 }
 
-module.exports = { fetchData, testConnection };
+/**
+ * Fetch work items grouped by assigned member for a date range.
+ * Returns: { [email]: { displayName, email, items: [...] } }
+ */
+async function fetchMemberWorkItems({ orgUrl, accessToken, project, fromDate, toDate }) {
+  const auth = Buffer.from(`:${accessToken}`).toString('base64');
+
+  const wiqlQuery = {
+    query: `SELECT [System.Id] FROM workitems WHERE [System.TeamProject] = '${project}' AND [System.ChangedDate] >= '${fromDate}' AND [System.ChangedDate] <= '${toDate}' AND [System.AssignedTo] <> '' ORDER BY [System.AssignedTo] ASC`,
+  };
+
+  const url = `${orgUrl}/${project}/_apis/wit/wiql?api-version=7.0`;
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Basic ${auth}`,
+    },
+    body: JSON.stringify(wiqlQuery),
+  });
+
+  if (!response.ok) {
+    throw new Error(`ADO WIQL error: ${response.status} ${response.statusText}`);
+  }
+
+  const data = await response.json();
+  const workItemIds = (data.workItems || []).map((wi) => wi.id).slice(0, 500);
+
+  if (workItemIds.length === 0) return {};
+
+  // Fetch details in batches of 200 (ADO API limit)
+  const fields = [
+    'System.Title',
+    'System.State',
+    'System.WorkItemType',
+    'System.AssignedTo',
+    'System.ChangedDate',
+    'System.CreatedDate',
+    'Microsoft.VSTS.Scheduling.StoryPoints',
+    'Microsoft.VSTS.Scheduling.Effort',
+  ].join(',');
+
+  const allItems = [];
+  for (let i = 0; i < workItemIds.length; i += 200) {
+    const batch = workItemIds.slice(i, i + 200);
+    const idsParam = batch.join(',');
+    const detailUrl = `${orgUrl}/_apis/wit/workitems?ids=${idsParam}&fields=${fields}&api-version=7.0`;
+
+    const detailRes = await fetch(detailUrl, {
+      headers: { Authorization: `Basic ${auth}` },
+    });
+
+    if (!detailRes.ok) {
+      throw new Error(`ADO detail error: ${detailRes.status}`);
+    }
+
+    const detailData = await detailRes.json();
+    allItems.push(...(detailData.value || []));
+  }
+
+  // Group by assigned-to email
+  const memberMap = {};
+  for (const item of allItems) {
+    const assignedTo = item.fields?.['System.AssignedTo'] || {};
+    // ADO returns assignedTo as { displayName, uniqueName, ... }
+    const email = (assignedTo.uniqueName || assignedTo.displayName || '').toLowerCase();
+    const displayName = assignedTo.displayName || email;
+
+    if (!email) continue;
+
+    if (!memberMap[email]) {
+      memberMap[email] = { displayName, email, items: [] };
+    }
+
+    memberMap[email].items.push({
+      id: item.id,
+      title: item.fields?.['System.Title'] || '',
+      state: item.fields?.['System.State'] || '',
+      type: item.fields?.['System.WorkItemType'] || '',
+      storyPoints: item.fields?.['Microsoft.VSTS.Scheduling.StoryPoints']
+        || item.fields?.['Microsoft.VSTS.Scheduling.Effort']
+        || null,
+      changedDate: item.fields?.['System.ChangedDate'] || '',
+      createdDate: item.fields?.['System.CreatedDate'] || '',
+    });
+  }
+
+  return memberMap;
+}
+
+module.exports = { fetchData, fetchMemberWorkItems, testConnection };
