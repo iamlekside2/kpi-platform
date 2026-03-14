@@ -14,6 +14,7 @@ import AppraisalDetailPage from './pages/appraisals/AppraisalDetailPage';
 import StaffPage from './pages/staff/StaffPage';
 import ProfilePage from './pages/profile/ProfilePage';
 import NotificationsPage from './pages/notifications/NotificationsPage';
+import AuditLogsPage from './pages/audit-logs/AuditLogsPage';
 
 export default function App() {
   const { isAuthenticated, loading } = useAuth();
@@ -47,6 +48,7 @@ export default function App() {
       <Route path="/appraisals/:id" element={<ProtectedRoute><AppraisalDetailPage /></ProtectedRoute>} />
       <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
       <Route path="/notifications" element={<ProtectedRoute><NotificationsPage /></ProtectedRoute>} />
+      <Route path="/audit-logs" element={<ProtectedRoute><AuditLogsPage /></ProtectedRoute>} />
 
       {/* Redirect old /reports to /dashboard */}
       <Route path="/reports" element={<Navigate to="/dashboard" />} />

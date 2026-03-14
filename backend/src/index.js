@@ -17,6 +17,7 @@ const analyticsRoutes = require('./modules/analytics/analytics.routes');
 const notificationRoutes = require('./modules/notifications/notifications.routes');
 const exportRoutes = require('./modules/exports/exports.routes');
 const departmentRoutes = require('./modules/departments/departments.routes');
+const auditLogRoutes = require('./modules/auditLogs/auditLogs.routes');
 
 // Middleware imports
 const { authenticate } = require('./modules/auth/auth.middleware');
@@ -61,6 +62,7 @@ app.use('/api/analytics', authenticate, analyticsRoutes);
 app.use('/api/notifications', authenticate, notificationRoutes);
 app.use('/api/exports', authenticate, exportRoutes);
 app.use('/api/departments', authenticate, departmentRoutes);
+app.use('/api/audit-logs', authenticate, auditLogRoutes);
 
 // Global error handler
 app.use((err, req, res, next) => {

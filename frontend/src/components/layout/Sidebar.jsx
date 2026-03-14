@@ -2,13 +2,14 @@ import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
-import { LayoutDashboard, BarChart3, Users, ClipboardList, Settings, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { LayoutDashboard, BarChart3, Users, ClipboardList, Settings, PanelLeftClose, PanelLeftOpen, ScrollText } from 'lucide-react';
 
 const allLinks = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/kpis', label: 'KPIs', icon: BarChart3 },
   { to: '/staff', label: 'Staff', icon: Users, roles: ['admin', 'lead'] },
   { to: '/appraisals', label: 'Appraisals', icon: ClipboardList },
+  { to: '/audit-logs', label: 'Audit Log', icon: ScrollText, roles: ['admin', 'lead'] },
   { to: '/settings', label: 'Settings', icon: Settings },
 ];
 

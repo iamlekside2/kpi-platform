@@ -1,6 +1,7 @@
 const service = require('./appraisals.service');
 const prisma = require('../../config/db');
 const { notifyAppraisalCreated, notifyAppraisalSubmitted, notifyAppraisalReviewed, notifyAppraisalCompleted } = require('../notifications/notify');
+const { auditAppraisalCreated, auditAppraisalUpdated, auditAppraisalStatusChanged, auditAppraisalDeleted } = require('../auditLogs/audit');
 
 // ── Helper: get user's org role ──
 async function getUserRole(userId, orgId) {
@@ -30,6 +31,7 @@ async function create(req, res) {
       req.body
     );
     notifyAppraisalCreated(appraisal).catch(() => {});
+    auditAppraisalCreated(appraisal, req.user.userId).catch(() => {});
     res.status(201).json(appraisal);
   } catch (err) {
     console.error('Create appraisal error:', err);
@@ -102,6 +104,7 @@ async function updateEmployee(req, res) {
     }
 
     const updated = await service.updateEmployeeSection(req.params.id, req.body);
+    auditAppraisalUpdated(updated, req.body, req.user.userId).catch(() => {});
     res.json(updated);
   } catch (err) {
     console.error('Update employee section error:', err);
@@ -124,6 +127,7 @@ async function submit(req, res) {
 
     const updated = await service.submitAppraisal(req.params.id);
     notifyAppraisalSubmitted(updated).catch(() => {});
+    auditAppraisalStatusChanged(updated, 'draft', 'submitted', req.user.userId).catch(() => {});
     res.json(updated);
   } catch (err) {
     console.error('Submit appraisal error:', err);
@@ -147,6 +151,7 @@ async function updateUnitHead(req, res) {
 
     const updated = await service.updateUnitHeadReview(req.params.id, req.user.userId, req.body);
     notifyAppraisalReviewed(updated, 'unit_head').catch(() => {});
+    auditAppraisalStatusChanged(updated, 'submitted', 'unit_reviewed', req.user.userId).catch(() => {});
     res.json(updated);
   } catch (err) {
     console.error('Unit head review error:', err);
@@ -172,6 +177,7 @@ async function updateAdmin(req, res) {
     // Need to fetch full appraisal for notification (updateAdminComment returns minimal)
     const full = await service.getAppraisalById(req.params.id);
     notifyAppraisalReviewed(full, 'admin').catch(() => {});
+    auditAppraisalStatusChanged(full, 'unit_reviewed', 'admin_reviewed', req.user.userId).catch(() => {});
     res.json(updated);
   } catch (err) {
     console.error('Admin comment error:', err);
@@ -195,6 +201,7 @@ async function updateMd(req, res) {
 
     const updated = await service.updateMdComment(req.params.id, req.body.mdComment, req.body.mdScore);
     notifyAppraisalCompleted(updated).catch(() => {});
+    auditAppraisalStatusChanged(updated, 'admin_reviewed', 'completed', req.user.userId).catch(() => {});
     res.json(updated);
   } catch (err) {
     console.error('MD comment error:', err);
@@ -213,6 +220,7 @@ async function remove(req, res) {
       return res.status(403).json({ error: 'Only administrators can delete appraisals' });
     }
 
+    auditAppraisalDeleted(appraisal, req.user.userId).catch(() => {});
     await service.deleteAppraisal(req.params.id);
     res.json({ success: true });
   } catch (err) {

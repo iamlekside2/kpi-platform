@@ -1,4 +1,6 @@
 const kpisService = require('./kpis.service');
+const prisma = require('../../config/db');
+const { auditKpiCreated, auditKpiUpdated, auditKpiDeleted } = require('../auditLogs/audit');
 
 async function getOrgKpis(req, res) {
   try {
@@ -15,6 +17,9 @@ async function getOrgKpis(req, res) {
 
 async function updateKpi(req, res) {
   try {
+    // Capture old values before update for audit
+    const oldKpi = await prisma.kPI.findUnique({ where: { id: req.params.id } });
+
     const { value, target } = req.body;
     const kpi = await kpisService.updateKpi({
       kpiId: req.params.id,
@@ -22,6 +27,11 @@ async function updateKpi(req, res) {
       target,
       userId: req.user.userId,
     });
+
+    if (oldKpi) {
+      auditKpiUpdated(kpi, { value: oldKpi.value, target: oldKpi.target }, req.user.userId).catch(() => {});
+    }
+
     return res.json(kpi);
   } catch (err) {
     if (err.message === 'KPI not found') return res.status(404).json({ error: err.message });
@@ -42,6 +52,7 @@ async function createKpi(req, res) {
       name, unit, target, category, description,
       userId: req.user.userId,
     });
+    auditKpiCreated(kpi, req.user.userId).catch(() => {});
     return res.status(201).json(kpi);
   } catch (err) {
     if (err.message === 'Members cannot create KPIs') return res.status(403).json({ error: err.message });
@@ -52,6 +63,12 @@ async function createKpi(req, res) {
 
 async function deleteKpi(req, res) {
   try {
+    // Capture KPI before deletion for audit
+    const kpi = await prisma.kPI.findUnique({ where: { id: req.params.id } });
+    if (kpi) {
+      auditKpiDeleted(kpi, req.user.userId).catch(() => {});
+    }
+
     await kpisService.deleteKpi({ kpiId: req.params.id, userId: req.user.userId });
     return res.json({ message: 'KPI deleted' });
   } catch (err) {

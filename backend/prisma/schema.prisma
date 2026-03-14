@@ -16,6 +16,7 @@ model User {
   employeeAppraisals  Appraisal[]    @relation("EmployeeAppraisals")
   reviewerAppraisals  Appraisal[]    @relation("ReviewerAppraisals")
   notifications       Notification[]
+  auditLogs           AuditLog[]
   createdAt           DateTime       @default(now())
 }
 
@@ -31,6 +32,7 @@ model Organisation {
   syncLogs      SyncLog[]
   appraisals    Appraisal[]
   notifications Notification[]
+  auditLogs     AuditLog[]
   createdAt     DateTime       @default(now())
 }
 
@@ -163,4 +165,21 @@ model Notification {
   orgId     String
   org       Organisation @relation(fields: [orgId], references: [id])
   createdAt DateTime     @default(now())
+}
+
+// ── Audit Log ────────────────────────────────────────────────
+
+model AuditLog {
+  id          String       @id @default(uuid())
+  action      String       // create | update | delete | status_change
+  entityType  String       // Appraisal | KPI | OrgMember | Organisation
+  entityId    String
+  description String
+  oldValues   Json?
+  newValues   Json?
+  userId      String
+  user        User         @relation(fields: [userId], references: [id])
+  orgId       String
+  org         Organisation @relation(fields: [orgId], references: [id])
+  createdAt   DateTime     @default(now())
 }

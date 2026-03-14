@@ -1,4 +1,6 @@
 const orgsService = require('./orgs.service');
+const prisma = require('../../config/db');
+const { auditMemberInvited, auditMemberRoleChanged, auditMemberDepartmentChanged, auditMemberRemoved } = require('../auditLogs/audit');
 
 async function createOrg(req, res) {
   try {
@@ -44,6 +46,7 @@ async function inviteToOrg(req, res) {
       inviterId: req.user.userId,
     });
 
+    auditMemberInvited(member, req.user.userId).catch(() => {});
     return res.status(201).json(member);
   } catch (err) {
     const clientErrors = ['Only admins can invite members', 'User is already a member', 'Name is required when adding a new staff member'];
@@ -83,12 +86,26 @@ async function updateMemberRole(req, res) {
     const { role } = req.body;
     if (!role) return res.status(400).json({ error: 'Role is required' });
 
+    // Capture old role before update
+    const oldMember = await prisma.orgMember.findUnique({
+      where: { id: req.params.memberId },
+      include: { user: { select: { name: true, email: true } } },
+    });
+    const oldRole = oldMember?.role;
+
     const member = await orgsService.updateMemberRole(
       req.params.id,
       req.params.memberId,
       role,
       req.user.userId
     );
+
+    if (oldRole && oldRole !== role) {
+      // Enrich member with user info for audit description
+      const enriched = { ...member, user: oldMember?.user, orgId: req.params.id };
+      auditMemberRoleChanged(enriched, oldRole, req.user.userId).catch(() => {});
+    }
+
     return res.json(member);
   } catch (err) {
     const clientErrors = ['Only admins can change roles', 'Member not found', 'Cannot change your own role', 'Invalid role'];
@@ -102,6 +119,17 @@ async function updateMemberRole(req, res) {
 
 async function removeMember(req, res) {
   try {
+    // Capture member info before removal for audit
+    const memberToRemove = await prisma.orgMember.findUnique({
+      where: { id: req.params.memberId },
+      include: { user: { select: { name: true, email: true } } },
+    });
+
+    if (memberToRemove) {
+      const enriched = { ...memberToRemove, orgId: req.params.id };
+      auditMemberRemoved(enriched, req.user.userId).catch(() => {});
+    }
+
     const result = await orgsService.removeMember(req.params.id, req.params.memberId, req.user.userId);
     return res.json(result);
   } catch (err) {
@@ -117,12 +145,25 @@ async function removeMember(req, res) {
 async function updateMemberDepartment(req, res) {
   try {
     const { departmentId } = req.body;
+
+    // Capture old department before update
+    const oldMember = await prisma.orgMember.findUnique({
+      where: { id: req.params.memberId },
+      include: { user: { select: { name: true, email: true } } },
+    });
+    const oldDeptId = oldMember?.departmentId;
+
     const member = await orgsService.updateMemberDepartment(
       req.params.id,
       req.params.memberId,
       departmentId,
       req.user.userId
     );
+
+    // Enrich for audit
+    const enriched = { ...member, user: oldMember?.user, orgId: req.params.id };
+    auditMemberDepartmentChanged(enriched, oldDeptId, req.user.userId).catch(() => {});
+
     return res.json(member);
   } catch (err) {
     const clientErrors = ['Only admins can change departments', 'Member not found'];
