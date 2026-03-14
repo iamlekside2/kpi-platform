@@ -1,27 +1,19 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Bell, Sun, Moon, LogOut, ClipboardList, Send, CheckCircle, Trophy, UserPlus, Menu, X } from 'lucide-react';
 import api from '../../services/api';
 import Button from '../ui/Button';
 
-// Bell SVG icon
-function BellIcon({ className }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-      <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-    </svg>
-  );
-}
-
 // Notification type icons
 const TYPE_ICONS = {
-  appraisal_created: '📋',
-  appraisal_submitted: '📤',
-  appraisal_reviewed: '✅',
-  appraisal_completed: '🏆',
-  member_invited: '👤',
+  appraisal_created: ClipboardList,
+  appraisal_submitted: Send,
+  appraisal_reviewed: CheckCircle,
+  appraisal_completed: Trophy,
+  member_invited: UserPlus,
 };
 
 // Relative time helper
@@ -37,8 +29,9 @@ function timeAgo(date) {
   return new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-export default function Navbar() {
+export default function Navbar({ onMobileMenuToggle, mobileOpen }) {
   const { user, activeOrg, logout } = useAuth();
+  const { mode, toggleMode } = useTheme();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
@@ -110,23 +103,74 @@ export default function Navbar() {
       initial={{ opacity: 0, y: -8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
-      className="h-16 px-8 flex items-center justify-between border-b border-white/[0.06] bg-surface-950/50 backdrop-blur-xl sticky top-0 z-30"
+      className="h-16 px-4 sm:px-6 lg:px-8 flex items-center justify-between border-b border-white/[0.06] bg-surface-950/50 backdrop-blur-xl sticky top-0 z-30"
     >
-      <div />
-      <div className="flex items-center gap-4">
+      {/* Mobile hamburger */}
+      <div className="flex items-center">
+        {onMobileMenuToggle && (
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={onMobileMenuToggle}
+            className="md:hidden w-9 h-9 rounded-lg bg-white/[0.04] border border-white/[0.06] flex items-center justify-center hover:bg-white/[0.08] transition-colors cursor-pointer"
+          >
+            {mobileOpen ? <X className="w-4.5 h-4.5 text-slate-400" /> : <Menu className="w-4.5 h-4.5 text-slate-400" />}
+          </motion.button>
+        )}
+      </div>
+      <div className="flex items-center gap-3">
+        {/* Light/Dark Toggle */}
+        <motion.button
+          onClick={toggleMode}
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          className="w-9 h-9 rounded-lg bg-white/[0.04] border border-white/[0.06] flex items-center justify-center hover:bg-white/[0.08] transition-colors cursor-pointer"
+          title={mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+        >
+          <AnimatePresence mode="wait">
+            {mode === 'dark' ? (
+              <motion.div
+                key="sun"
+                initial={{ rotate: -90, opacity: 0, scale: 0.5 }}
+                animate={{ rotate: 0, opacity: 1, scale: 1 }}
+                exit={{ rotate: 90, opacity: 0, scale: 0.5 }}
+                transition={{ duration: 0.2 }}
+              >
+                <Sun className="w-4 h-4 text-slate-400" />
+              </motion.div>
+            ) : (
+              <motion.div
+                key="moon"
+                initial={{ rotate: 90, opacity: 0, scale: 0.5 }}
+                animate={{ rotate: 0, opacity: 1, scale: 1 }}
+                exit={{ rotate: -90, opacity: 0, scale: 0.5 }}
+                transition={{ duration: 0.2 }}
+              >
+                <Moon className="w-4 h-4 text-slate-400" />
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </motion.button>
+
         {/* Bell Icon */}
         <div className="relative" ref={dropdownRef}>
-          <button
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
             onClick={() => setOpen(!open)}
             className="relative w-9 h-9 rounded-lg bg-white/[0.04] border border-white/[0.06] flex items-center justify-center hover:bg-white/[0.08] transition-colors cursor-pointer"
           >
-            <BellIcon className="w-4.5 h-4.5 text-slate-400" />
+            <Bell className="w-4 h-4 text-slate-400" />
             {unreadCount > 0 && (
-              <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+              <motion.span
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center"
+              >
                 {unreadCount > 9 ? '9+' : unreadCount}
-              </span>
+              </motion.span>
             )}
-          </button>
+          </motion.button>
 
           {/* Dropdown Panel */}
           <AnimatePresence>
@@ -155,30 +199,36 @@ export default function Navbar() {
                 <div className="max-h-80 overflow-y-auto">
                   {notifications.length === 0 ? (
                     <div className="flex flex-col items-center py-8 text-center">
-                      <span className="text-2xl mb-2">🔔</span>
+                      <Bell className="w-8 h-8 text-slate-600 mb-2" />
                       <p className="text-xs text-slate-500">No notifications yet</p>
                     </div>
                   ) : (
-                    notifications.map((n) => (
-                      <button
-                        key={n.id}
-                        onClick={() => handleNotificationClick(n)}
-                        className={`w-full text-left px-4 py-3 flex gap-3 hover:bg-white/[0.04] transition-colors cursor-pointer border-b border-white/[0.03] last:border-0
-                          ${!n.read ? 'bg-accent-500/[0.04]' : ''}`}
-                      >
-                        <span className="text-lg shrink-0 mt-0.5">{TYPE_ICONS[n.type] || '🔔'}</span>
-                        <div className="flex-1 min-w-0">
-                          <p className={`text-xs font-semibold truncate ${!n.read ? 'text-white' : 'text-slate-300'}`}>
-                            {n.title}
-                          </p>
-                          <p className="text-[11px] text-slate-500 line-clamp-2 mt-0.5">{n.message}</p>
-                          <p className="text-[10px] text-slate-600 mt-1">{timeAgo(n.createdAt)}</p>
-                        </div>
-                        {!n.read && (
-                          <span className="w-2 h-2 rounded-full bg-accent-500 shrink-0 mt-1.5" />
-                        )}
-                      </button>
-                    ))
+                    notifications.map((n) => {
+                      const Icon = TYPE_ICONS[n.type] || Bell;
+                      return (
+                        <motion.button
+                          key={n.id}
+                          onClick={() => handleNotificationClick(n)}
+                          whileHover={{ backgroundColor: 'rgba(255,255,255,0.04)' }}
+                          className={`w-full text-left px-4 py-3 flex gap-3 transition-colors cursor-pointer border-b border-white/[0.03] last:border-0
+                            ${!n.read ? 'bg-accent-500/[0.04]' : ''}`}
+                        >
+                          <div className="w-8 h-8 rounded-lg bg-accent-500/10 flex items-center justify-center shrink-0 mt-0.5">
+                            <Icon className="w-4 h-4 text-accent-400" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className={`text-xs font-semibold truncate ${!n.read ? 'text-white' : 'text-slate-300'}`}>
+                              {n.title}
+                            </p>
+                            <p className="text-[11px] text-slate-500 line-clamp-2 mt-0.5">{n.message}</p>
+                            <p className="text-[10px] text-slate-600 mt-1">{timeAgo(n.createdAt)}</p>
+                          </div>
+                          {!n.read && (
+                            <span className="w-2 h-2 rounded-full bg-accent-500 shrink-0 mt-1.5" />
+                          )}
+                        </motion.button>
+                      );
+                    })
                   )}
                 </div>
 
@@ -197,17 +247,23 @@ export default function Navbar() {
 
         {/* Avatar + Name */}
         <Link to="/profile" className="flex items-center gap-3 group cursor-pointer">
-          <div className="w-8 h-8 rounded-full bg-accent-500/20 border border-accent-500/30 flex items-center justify-center text-xs font-bold text-accent-400 group-hover:bg-accent-500/30 transition-colors">
+          <motion.div
+            whileHover={{ scale: 1.05 }}
+            className="w-8 h-8 rounded-full bg-accent-500/20 border border-accent-500/30 flex items-center justify-center text-xs font-bold text-accent-400 group-hover:bg-accent-500/30 transition-colors"
+          >
             {(user?.name || user?.email || '?').charAt(0).toUpperCase()}
-          </div>
+          </motion.div>
           <span className="text-sm text-slate-300 font-medium hidden sm:block group-hover:text-white transition-colors">
             {user?.name || user?.email}
           </span>
         </Link>
 
-        <Button variant="secondary" onClick={logout}>
-          Logout
-        </Button>
+        <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+          <Button variant="secondary" onClick={logout}>
+            <LogOut className="w-4 h-4" />
+            <span className="hidden sm:inline ml-1">Logout</span>
+          </Button>
+        </motion.div>
       </div>
     </motion.header>
   );

@@ -9,7 +9,7 @@
 }
 
 :root {
-  /* Default: indigo */
+  /* Default: indigo dark */
   --accent-300: #a5b4fc;
   --accent-400: #818cf8;
   --accent-500: #6366f1;
@@ -26,4 +26,73 @@ body {
 ::selection {
   background: var(--accent-500);
   color: white;
+}
+
+/* ── Light mode overrides ──
+   Uses attribute selectors to avoid CSS escape issues with Tailwind class names.
+   The html.light class is toggled by ThemeContext. */
+
+html.light {
+  color-scheme: light;
+}
+
+/* Invert text colours */
+html.light .text-white { color: #0f172a !important; }
+html.light .text-slate-100 { color: #1e293b !important; }
+html.light .text-slate-200 { color: #334155 !important; }
+html.light .text-slate-300 { color: #475569 !important; }
+html.light .text-slate-400 { color: #64748b !important; }
+html.light .text-slate-500 { color: #94a3b8 !important; }
+html.light .text-slate-600 { color: #94a3b8 !important; }
+
+/* Catch-all: any element whose class contains "border-white" */
+html.light [class*="border-white"] {
+  border-color: rgba(15, 23, 42, 0.08) !important;
+}
+
+/* Catch-all: any element whose class contains "bg-white/" (semi-transparent white) */
+html.light [class*="bg-white\\/"],
+html.light [class*="bg-white/"] {
+  background-color: rgba(15, 23, 42, 0.04) !important;
+}
+
+/* Hover text */
+html.light [class*="hover:text-white"]:hover { color: #0f172a !important; }
+html.light [class*="hover:text-slate-200"]:hover { color: #334155 !important; }
+
+/* Hover bg for white-based */
+html.light [class*="hover:bg-white"]:hover {
+  background-color: rgba(15, 23, 42, 0.06) !important;
+}
+
+/* Placeholder text */
+html.light [class*="placeholder-slate"]::placeholder {
+  color: #94a3b8 !important;
+}
+
+/* Slate dark bg used in tables and cards */
+html.light [class*="bg-slate-800"] {
+  background-color: rgba(241, 245, 249, 0.8) !important;
+}
+
+/* Black overlays — soften for light mode */
+html.light [class*="bg-black"] {
+  background-color: rgba(0, 0, 0, 0.2) !important;
+}
+
+/* Shadows — soften */
+html.light [class*="shadow-black"] {
+  --tw-shadow-color: rgba(0, 0, 0, 0.06) !important;
+}
+
+/* Ring offset for theme picker */
+html.light .ring-offset-surface-950 {
+  --tw-ring-offset-color: #f8fafc !important;
+}
+
+/* Input text */
+html.light input,
+html.light textarea,
+html.light select {
+  color: #0f172a;
 }

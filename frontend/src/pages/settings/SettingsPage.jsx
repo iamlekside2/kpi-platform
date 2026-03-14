@@ -6,6 +6,7 @@ import { useAuth } from '../../context/AuthContext';
 import PageWrapper from '../../components/layout/PageWrapper';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
+import { Palette, Link2, BellRing, ClipboardList, Sun, Moon } from 'lucide-react';
 
 const TOOLS = [
   { key: 'ado', name: 'Azure DevOps', icon: '🔷', fields: ['orgUrl', 'accessToken', 'project'] },
@@ -14,14 +15,14 @@ const TOOLS = [
 ];
 
 const TABS = [
-  { key: 'appearance', label: 'Appearance', icon: '🎨' },
-  { key: 'integrations', label: 'Integrations', icon: '🔗' },
-  { key: 'alerts', label: 'Alerts', icon: '🔔' },
-  { key: 'logs', label: 'Sync History', icon: '📋' },
+  { key: 'appearance', label: 'Appearance', icon: Palette },
+  { key: 'integrations', label: 'Integrations', icon: Link2 },
+  { key: 'alerts', label: 'Alerts', icon: BellRing },
+  { key: 'logs', label: 'Sync History', icon: ClipboardList },
 ];
 
 export default function SettingsPage() {
-  const { themeColor, updateThemeColor, COLOR_MAP } = useTheme();
+  const { themeColor, updateThemeColor, COLOR_MAP, mode, toggleMode } = useTheme();
   const { orgRole } = useAuth();
   const isAdmin = orgRole === 'admin';
   const [tab, setTab] = useState('appearance');
@@ -124,19 +125,22 @@ export default function SettingsPage() {
 
         {/* Tabs */}
         <div className="flex gap-1 p-1 bg-surface-900/60 border border-white/[0.06] rounded-xl mb-6 w-fit">
-          {TABS.map((t) => (
-            <button
-              key={t.key}
-              onClick={() => setTab(t.key)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 cursor-pointer
-                ${tab === t.key
-                  ? 'bg-accent-500/15 text-accent-400 shadow-sm'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]'}`}
-            >
-              <span>{t.icon}</span>
-              {t.label}
-            </button>
-          ))}
+          {TABS.map((t) => {
+            const Icon = t.icon;
+            return (
+              <button
+                key={t.key}
+                onClick={() => setTab(t.key)}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 cursor-pointer
+                  ${tab === t.key
+                    ? 'bg-accent-500/15 text-accent-400 shadow-sm'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]'}`}
+              >
+                <Icon className="w-4 h-4" />
+                {t.label}
+              </button>
+            );
+          })}
         </div>
 
         {/* Messages */}
@@ -166,6 +170,38 @@ export default function SettingsPage() {
         {/* Appearance Tab */}
         {tab === 'appearance' && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+            {/* Mode Toggle */}
+            <h3 className="text-lg font-semibold text-white mb-2">Theme Mode</h3>
+            <p className="text-sm text-slate-400 mb-4">
+              Switch between dark and light mode. This preference is saved locally.
+            </p>
+            <div className="flex gap-3 mb-8">
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => mode !== 'dark' && toggleMode()}
+                className={`flex items-center gap-3 px-5 py-3 rounded-xl border transition-all cursor-pointer
+                  ${mode === 'dark'
+                    ? 'bg-accent-500/10 border-accent-500/30 text-accent-400'
+                    : 'bg-surface-900/60 border-white/[0.06] text-slate-400 hover:border-white/10'}`}
+              >
+                <Moon className="w-5 h-5" />
+                <span className="text-sm font-medium">Dark</span>
+              </motion.button>
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => mode !== 'light' && toggleMode()}
+                className={`flex items-center gap-3 px-5 py-3 rounded-xl border transition-all cursor-pointer
+                  ${mode === 'light'
+                    ? 'bg-accent-500/10 border-accent-500/30 text-accent-400'
+                    : 'bg-surface-900/60 border-white/[0.06] text-slate-400 hover:border-white/10'}`}
+              >
+                <Sun className="w-5 h-5" />
+                <span className="text-sm font-medium">Light</span>
+              </motion.button>
+            </div>
+
             <h3 className="text-lg font-semibold text-white mb-2">Brand Colour</h3>
             <p className="text-sm text-slate-400 mb-6">
               Choose an accent colour for your organisation. This changes buttons, links, and highlights across the entire app.

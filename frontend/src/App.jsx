@@ -7,12 +7,12 @@ import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
 import ResetPasswordPage from './pages/auth/ResetPasswordPage';
 import OnboardingPage from './pages/onboarding/OnboardingPage';
 import DashboardPage from './pages/dashboard/DashboardPage';
+import KPIsPage from './pages/kpis/KPIsPage';
 import SettingsPage from './pages/settings/SettingsPage';
 import AppraisalsPage from './pages/appraisals/AppraisalsPage';
 import AppraisalDetailPage from './pages/appraisals/AppraisalDetailPage';
 import StaffPage from './pages/staff/StaffPage';
 import ProfilePage from './pages/profile/ProfilePage';
-import ReportsPage from './pages/reports/ReportsPage';
 import NotificationsPage from './pages/notifications/NotificationsPage';
 
 export default function App() {
@@ -40,13 +40,16 @@ export default function App() {
       {/* Protected routes */}
       <Route path="/onboarding" element={<ProtectedRoute><OnboardingPage /></ProtectedRoute>} />
       <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
+      <Route path="/kpis" element={<ProtectedRoute><KPIsPage /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
       <Route path="/staff" element={<ProtectedRoute><StaffPage /></ProtectedRoute>} />
       <Route path="/appraisals" element={<ProtectedRoute><AppraisalsPage /></ProtectedRoute>} />
       <Route path="/appraisals/:id" element={<ProtectedRoute><AppraisalDetailPage /></ProtectedRoute>} />
       <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
-      <Route path="/reports" element={<ProtectedRoute><ReportsPage /></ProtectedRoute>} />
       <Route path="/notifications" element={<ProtectedRoute><NotificationsPage /></ProtectedRoute>} />
+
+      {/* Redirect old /reports to /dashboard */}
+      <Route path="/reports" element={<Navigate to="/dashboard" />} />
 
       {/* Default redirect */}
       <Route path="*" element={<Navigate to={isAuthenticated ? '/dashboard' : '/login'} />} />
