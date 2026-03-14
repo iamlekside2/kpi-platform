@@ -31,12 +31,8 @@ export default function KPICard({ kpi, onUpdate, onDelete }) {
   const isOverTarget = kpi.value != null && kpi.target && kpi.value >= kpi.target;
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      whileHover={{ y: -2 }}
-      transition={{ duration: 0.2 }}
-      className="group bg-surface-900/60 backdrop-blur-sm border border-white/[0.06] rounded-xl p-5 hover:border-white/10 hover:shadow-lg hover:shadow-accent-500/5 transition-all duration-300"
+    <div
+      className="group bg-surface-900/60 backdrop-blur-sm border border-white/[0.06] rounded-xl p-5 hover:border-white/10 hover:shadow-lg hover:shadow-accent-500/5 hover:-translate-y-0.5 transition-all duration-300"
     >
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
@@ -124,6 +120,6 @@ export default function KPICard({ kpi, onUpdate, onDelete }) {
           {kpi.description}
         </p>
       )}
-    </motion.div>
+    </div>
   );
 }

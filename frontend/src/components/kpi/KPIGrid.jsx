@@ -1,4 +1,3 @@
-import { motion } from 'framer-motion';
 import KPICard from './KPICard';
 
 export default function KPIGrid({ kpis, onUpdate, onDelete }) {
@@ -24,13 +23,8 @@ export default function KPIGrid({ kpis, onUpdate, onDelete }) {
 
   return (
     <div className="space-y-8 mt-6">
-      {Object.entries(grouped).map(([category, categoryKpis], groupIdx) => (
-        <motion.div
-          key={category}
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: groupIdx * 0.1 }}
-        >
+      {Object.entries(grouped).map(([category, categoryKpis]) => (
+        <div key={category}>
           <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
             <span>{category}</span>
             <span className="text-[10px] text-slate-600 bg-white/[0.04] px-2 py-0.5 rounded-full">
@@ -42,7 +36,7 @@ export default function KPIGrid({ kpis, onUpdate, onDelete }) {
               <KPICard key={kpi.id} kpi={kpi} onUpdate={onUpdate} onDelete={onDelete} />
             ))}
           </div>
-        </motion.div>
+        </div>
       ))}
     </div>
   );
