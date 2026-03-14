@@ -68,20 +68,31 @@ function normalise({ done, inProgress, blocked }) {
   ];
 }
 
-async function testConnection({ orgUrl, accessToken }) {
+async function testConnection({ orgUrl, accessToken, project }) {
   const auth = Buffer.from(`:${accessToken}`).toString('base64');
-  const url = `${orgUrl}/_apis/projects?api-version=7.0`;
 
+  // 1. Validate org URL + credentials
+  const url = `${orgUrl}/_apis/projects?api-version=7.0`;
   const response = await fetch(url, {
     headers: { Authorization: `Basic ${auth}` },
   });
 
   if (!response.ok) {
-    throw new Error(`Connection failed: ${response.status}`);
+    throw new Error(`Connection failed: ${response.status}. Check your Organisation URL and Access Token.`);
   }
 
   const data = await response.json();
-  return { success: true, projects: (data.value || []).map((p) => p.name) };
+  const projectNames = (data.value || []).map((p) => p.name);
+
+  // 2. Validate project name if provided
+  if (project) {
+    const match = projectNames.find((p) => p.toLowerCase() === project.toLowerCase());
+    if (!match) {
+      throw new Error(`Project "${project}" not found. Available projects: ${projectNames.join(', ')}`);
+    }
+  }
+
+  return { success: true, projects: projectNames };
 }
 
 /**

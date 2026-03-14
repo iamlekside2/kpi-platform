@@ -23,7 +23,8 @@ async function createIntegration({ orgId, tool, accessToken, orgUrl, email, fiel
   if (!adapter) throw new Error(`Unsupported tool: ${tool}`);
 
   try {
-    await testConnection({ tool, accessToken, orgUrl, email });
+    const project = fieldMap?.project || '';
+    await testConnection({ tool, accessToken, orgUrl, email, project });
   } catch (err) {
     throw new Error(`Connection test failed: ${err.message}`);
   }
@@ -72,12 +73,12 @@ async function deleteIntegration({ integrationId, userId }) {
   return prisma.integration.delete({ where: { id: integrationId } });
 }
 
-async function testConnection({ tool, accessToken, orgUrl, email }) {
+async function testConnection({ tool, accessToken, orgUrl, email, project }) {
   const adapter = adapters[tool];
   if (!adapter) throw new Error(`Unsupported tool: ${tool}`);
 
   if (tool === 'ado') {
-    return adapter.testConnection({ orgUrl, accessToken });
+    return adapter.testConnection({ orgUrl, accessToken, project });
   } else if (tool === 'jira') {
     return adapter.testConnection({ domain: orgUrl, email, accessToken });
   } else if (tool === 'asana') {

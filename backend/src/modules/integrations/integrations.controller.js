@@ -52,8 +52,8 @@ async function deleteIntegration(req, res) {
 
 async function testConnection(req, res) {
   try {
-    const { tool, accessToken, orgUrl, email } = req.body;
-    const result = await integrationsService.testConnection({ tool, accessToken, orgUrl, email });
+    const { tool, accessToken, orgUrl, email, project } = req.body;
+    const result = await integrationsService.testConnection({ tool, accessToken, orgUrl, email, project });
     return res.json(result);
   } catch (err) {
     return res.status(400).json({ error: err.message });
