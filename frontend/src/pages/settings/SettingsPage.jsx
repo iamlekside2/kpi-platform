@@ -122,7 +122,7 @@ export default function SettingsPage() {
         periodFrom,
         periodTo,
       });
-      setMemberSyncResult(data);
+      setMemberSyncResult({ ...data, _integrationId: integrationId });
       setSuccess(`Synced staff tasks: ${data.matched} of ${data.totalAdoUsers} ADO users matched`);
       setTimeout(() => setSuccess(''), 5000);
     } catch (err) {
@@ -295,71 +295,83 @@ export default function SettingsPage() {
         {/* Integrations Tab */}
         {tab === 'integrations' && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="space-y-6">
               {TOOLS.map((tool, i) => {
-                const connected = integrations.find((ig) => ig.tool === tool.key);
+                const connectedList = integrations.filter((ig) => ig.tool === tool.key);
                 return (
                   <motion.div
                     key={tool.key}
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: i * 0.05 }}
-                    className={`bg-surface-900/60 border rounded-xl p-5 transition-all
-                      ${connected
-                        ? 'border-emerald-500/30 shadow-sm shadow-emerald-500/5'
-                        : 'border-white/[0.06] hover:border-white/10'}`}
+                    className="bg-surface-900/60 border border-white/[0.06] rounded-xl p-5"
                   >
-                    <div className="flex items-center gap-3 mb-3">
-                      <span className="text-2xl">{tool.icon}</span>
-                      <h3 className="text-base font-semibold text-white">{tool.name}</h3>
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <span className="text-2xl">{tool.icon}</span>
+                        <h3 className="text-base font-semibold text-white">{tool.name}</h3>
+                        {connectedList.length > 0 && (
+                          <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400">
+                            {connectedList.length} connected
+                          </span>
+                        )}
+                      </div>
+                      <Button variant="outline" onClick={() => { setConnectForm(tool.key); setFormData({}); }}>
+                        {connectedList.length > 0 ? '+ Add Another' : 'Connect'}
+                      </Button>
                     </div>
 
-                    {connected ? (
-                      <div>
-                        <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full
-                          ${connected.status === 'connected'
-                            ? 'bg-emerald-500/10 text-emerald-400'
-                            : 'bg-red-500/10 text-red-400'}`}>
-                          {connected.status}
-                        </span>
-                        {connected.lastSyncedAt && (
-                          <p className="text-[11px] text-slate-500 mt-2">
-                            Last synced: {new Date(connected.lastSyncedAt).toLocaleString()}
-                          </p>
-                        )}
-                        <div className="flex flex-wrap gap-2 mt-3">
-                          <Button onClick={() => handleSync(connected.id)}>Sync KPIs</Button>
-                          {tool.key === 'ado' && (
-                            <Button
-                              variant="outline"
-                              onClick={() => handleSyncMembers(connected.id)}
-                              disabled={syncingMembers}
-                            >
-                              {syncingMembers ? 'Syncing...' : 'Sync Staff Tasks'}
-                            </Button>
-                          )}
-                          <Button variant="danger" onClick={() => handleDeleteIntegration(connected.id)}>Disconnect</Button>
-                        </div>
-                        {memberSyncResult && tool.key === 'ado' && (
-                          <div className="mt-3 p-3 bg-surface-950/50 rounded-lg border border-white/[0.04]">
-                            <p className="text-xs text-slate-300">
-                              Matched <span className="text-accent-400 font-bold">{memberSyncResult.matched}</span> of {memberSyncResult.totalAdoUsers} ADO users
-                            </p>
-                            {memberSyncResult.unmatchedEmails?.length > 0 && (
-                              <div className="mt-2">
-                                <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Unmatched ADO emails:</p>
-                                {memberSyncResult.unmatchedEmails.map((e) => (
-                                  <span key={e} className="inline-block text-[10px] text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full mr-1 mb-1">{e}</span>
-                                ))}
+                    {connectedList.length > 0 && (
+                      <div className="space-y-3">
+                        {connectedList.map((connected) => (
+                          <div key={connected.id} className="p-4 bg-surface-950/40 border border-white/[0.04] rounded-lg">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full
+                                ${connected.status === 'connected'
+                                  ? 'bg-emerald-500/10 text-emerald-400'
+                                  : 'bg-red-500/10 text-red-400'}`}>
+                                {connected.status}
+                              </span>
+                              {connected.orgUrl && (
+                                <span className="text-[11px] text-slate-400 truncate max-w-[200px]">{connected.orgUrl}</span>
+                              )}
+                            </div>
+                            {connected.lastSyncedAt && (
+                              <p className="text-[11px] text-slate-500 mt-1">
+                                Last synced: {new Date(connected.lastSyncedAt).toLocaleString()}
+                              </p>
+                            )}
+                            <div className="flex flex-wrap gap-2 mt-3">
+                              <Button onClick={() => handleSync(connected.id)}>Sync KPIs</Button>
+                              {tool.key === 'ado' && (
+                                <Button
+                                  variant="outline"
+                                  onClick={() => handleSyncMembers(connected.id)}
+                                  disabled={syncingMembers}
+                                >
+                                  {syncingMembers ? 'Syncing...' : 'Sync Staff Tasks'}
+                                </Button>
+                              )}
+                              <Button variant="danger" onClick={() => handleDeleteIntegration(connected.id)}>Disconnect</Button>
+                            </div>
+                            {memberSyncResult && memberSyncResult._integrationId === connected.id && (
+                              <div className="mt-3 p-3 bg-surface-950/50 rounded-lg border border-white/[0.04]">
+                                <p className="text-xs text-slate-300">
+                                  Matched <span className="text-accent-400 font-bold">{memberSyncResult.matched}</span> of {memberSyncResult.totalAdoUsers} ADO users
+                                </p>
+                                {memberSyncResult.unmatchedEmails?.length > 0 && (
+                                  <div className="mt-2">
+                                    <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Unmatched ADO emails:</p>
+                                    {memberSyncResult.unmatchedEmails.map((e) => (
+                                      <span key={e} className="inline-block text-[10px] text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full mr-1 mb-1">{e}</span>
+                                    ))}
+                                  </div>
+                                )}
                               </div>
                             )}
                           </div>
-                        )}
+                        ))}
                       </div>
-                    ) : (
-                      <Button variant="outline" onClick={() => { setConnectForm(tool.key); setFormData({}); }}>
-                        Connect
-                      </Button>
                     )}
                   </motion.div>
                 );
