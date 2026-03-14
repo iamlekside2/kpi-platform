@@ -498,6 +498,7 @@ export default function AppraisalDetailPage() {
                       <tr className="border-b border-white/[0.06]">
                         <th className="text-left px-4 py-2.5 text-[10px] uppercase tracking-wider font-semibold text-slate-500 bg-surface-900/80">ID</th>
                         <th className="text-left px-4 py-2.5 text-[10px] uppercase tracking-wider font-semibold text-slate-500 bg-surface-900/80">Title</th>
+                        <th className="text-left px-4 py-2.5 text-[10px] uppercase tracking-wider font-semibold text-slate-500 bg-surface-900/80">Project</th>
                         <th className="text-left px-4 py-2.5 text-[10px] uppercase tracking-wider font-semibold text-slate-500 bg-surface-900/80">Type</th>
                         <th className="text-left px-4 py-2.5 text-[10px] uppercase tracking-wider font-semibold text-slate-500 bg-surface-900/80">State</th>
                         <th className="text-left px-4 py-2.5 text-[10px] uppercase tracking-wider font-semibold text-slate-500 bg-surface-900/80">Points</th>
@@ -515,6 +516,7 @@ export default function AppraisalDetailPage() {
                           <tr key={item.id} className={i < workItemData.items.length - 1 ? 'border-b border-white/[0.04]' : ''}>
                             <td className="px-4 py-2.5 text-xs text-slate-500 tabular-nums">#{item.id}</td>
                             <td className="px-4 py-2.5 text-sm text-slate-200 max-w-xs truncate">{item.title}</td>
+                            <td className="px-4 py-2.5 text-xs text-slate-400">{item.project || '--'}</td>
                             <td className="px-4 py-2.5 text-xs text-slate-400">{item.type}</td>
                             <td className="px-4 py-2.5">
                               <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${stateStyle}`}>

@@ -70,6 +70,9 @@ async function deleteIntegration({ integrationId, userId }) {
     throw new Error('Only admins can delete integrations');
   }
 
+  // Delete related records first (foreign key constraints)
+  await prisma.memberWorkItems.deleteMany({ where: { integrationId } });
+  await prisma.syncLog.deleteMany({ where: { integrationId } });
   return prisma.integration.delete({ where: { id: integrationId } });
 }
 

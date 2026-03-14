@@ -388,14 +388,19 @@ export default function SettingsPage() {
                     </h3>
                     <form onSubmit={handleConnect}>
                       {TOOLS.find((t) => t.key === connectForm)?.fields.map((field) => (
-                        <Input
-                          key={field}
-                          label={field === 'orgUrl' ? 'Organisation URL / Domain' : field === 'accessToken' ? 'Access Token / PAT' : field.charAt(0).toUpperCase() + field.slice(1)}
-                          type={field === 'accessToken' ? 'password' : 'text'}
-                          value={formData[field] || ''}
-                          onChange={(e) => setFormData({ ...formData, [field]: e.target.value })}
-                          required={field === 'accessToken'}
-                        />
+                        <div key={field}>
+                          <Input
+                            label={field === 'orgUrl' ? 'Organisation URL / Domain' : field === 'accessToken' ? 'Access Token / PAT' : field === 'project' ? 'Project(s)' : field.charAt(0).toUpperCase() + field.slice(1)}
+                            type={field === 'accessToken' ? 'password' : 'text'}
+                            placeholder={field === 'project' ? 'Leave blank for all projects, or comma-separated' : ''}
+                            value={formData[field] || ''}
+                            onChange={(e) => setFormData({ ...formData, [field]: e.target.value })}
+                            required={field === 'accessToken'}
+                          />
+                          {field === 'project' && (
+                            <p className="text-[10px] text-slate-500 mt-0.5 mb-2">Leave blank to sync all projects, or enter names separated by commas</p>
+                          )}
+                        </div>
                       ))}
                       <div className="flex gap-2 mt-2">
                         <Button type="submit" disabled={connecting}>
