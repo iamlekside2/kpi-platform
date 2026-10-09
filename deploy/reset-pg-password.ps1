@@ -33,8 +33,12 @@ if (-not $newPass) { throw 'Empty password — aborting.' }
 
 # ── 1. Backup and switch localhost lines to trust ───────────────────────────
 $backup = "$hba.backup-before-reset"
-Copy-Item $hba $backup -Force
-Write-Host "Backup saved: $backup"
+if (Test-Path $backup) {
+    Write-Host "Backup already exists (keeping it): $backup"
+} else {
+    Copy-Item $hba $backup
+    Write-Host "Backup saved: $backup"
+}
 
 (Get-Content $hba) | ForEach-Object {
     if ($_ -match '^\s*host' -and $_ -match '(127\.0\.0\.1/32|::1/128)') {
@@ -42,20 +46,20 @@ Write-Host "Backup saved: $backup"
     } else { $_ }
 } | Set-Content $hba -Encoding ascii
 
-Restart-Service $pgSvc.Name
+Restart-Service $pgSvc.Name -Force
 Start-Sleep -Seconds 5
 
 # ── 2. Set the new password ─────────────────────────────────────────────────
 & $psql -U postgres -h 127.0.0.1 -d postgres -c "ALTER USER postgres PASSWORD '$($newPass -replace "'","''")'"
 if ($LASTEXITCODE -ne 0) {
     Copy-Item $backup $hba -Force
-    Restart-Service $pgSvc.Name
+    Restart-Service $pgSvc.Name -Force
     throw 'ALTER USER failed — pg_hba.conf restored.'
 }
 
 # ── 3. Restore original auth config ─────────────────────────────────────────
 Copy-Item $backup $hba -Force
-Restart-Service $pgSvc.Name
+Restart-Service $pgSvc.Name -Force
 Start-Sleep -Seconds 5
 
 # ── 4. Verify ───────────────────────────────────────────────────────────────
