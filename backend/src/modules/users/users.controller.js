@@ -15,13 +15,17 @@ async function getProfile(req, res) {
 
 async function updateProfile(req, res) {
   try {
-    const { name } = req.body;
+    const { name, integrationEmail } = req.body;
 
     if (!name || !name.trim()) {
       return res.status(400).json({ error: 'Name is required' });
     }
 
-    const user = await usersService.updateProfile(req.user.userId, { name: name.trim() });
+    if (integrationEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(integrationEmail.trim())) {
+      return res.status(400).json({ error: 'Integration email is not a valid email address' });
+    }
+
+    const user = await usersService.updateProfile(req.user.userId, { name: name.trim(), integrationEmail });
     return res.json(user);
   } catch (err) {
     console.error('Update profile error:', err);

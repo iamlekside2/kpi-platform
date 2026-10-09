@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>CalmGlobal KPI Platform — Operations Guide</title>
+<style>
+  @page { size: A4; margin: 18mm 16mm; }
+  * { box-sizing: border-box; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; color: #1e293b; font-size: 10.5pt; line-height: 1.55; margin: 0; }
+  h1 { font-size: 21pt; color: #312e81; margin: 0 0 2px; }
+  .subtitle { color: #64748b; font-size: 11pt; margin-bottom: 18px; }
+  h2 { font-size: 14pt; color: #4338ca; border-bottom: 2px solid #e0e7ff; padding-bottom: 4px; margin-top: 26px; page-break-after: avoid; }
+  h3 { font-size: 11.5pt; color: #1e293b; margin-bottom: 4px; page-break-after: avoid; }
+  table { border-collapse: collapse; width: 100%; margin: 8px 0 14px; page-break-inside: avoid; }
+  th { background: #4338ca; color: white; text-align: left; padding: 6px 9px; font-size: 9.5pt; }
+  td { border: 1px solid #e2e8f0; padding: 5px 9px; font-size: 9.5pt; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8fafc; }
+  code { background: #eef2ff; color: #3730a3; padding: 1px 5px; border-radius: 3px; font-family: Consolas, monospace; font-size: 9pt; }
+  pre { background: #1e293b; color: #e2e8f0; padding: 10px 14px; border-radius: 6px; font-family: Consolas, monospace; font-size: 8.8pt; overflow-x: hidden; white-space: pre-wrap; word-break: break-all; page-break-inside: avoid; }
+  .note { background: #fffbeb; border-left: 4px solid #f59e0b; padding: 8px 12px; margin: 10px 0; font-size: 9.5pt; page-break-inside: avoid; }
+  .ok { background: #f0fdf4; border-left: 4px solid #22c55e; padding: 8px 12px; margin: 10px 0; font-size: 9.5pt; page-break-inside: avoid; }
+  .danger { background: #fef2f2; border-left: 4px solid #ef4444; padding: 8px 12px; margin: 10px 0; font-size: 9.5pt; page-break-inside: avoid; }
+  .footer { color: #94a3b8; font-size: 8.5pt; margin-top: 30px; border-top: 1px solid #e2e8f0; padding-top: 8px; }
+  .pagebreak { page-break-before: always; }
+</style>
+</head>
+<body>
+
+<h1>CalmGlobal KPI Platform</h1>
+<div class="subtitle">Operations &amp; Deployment Guide — prepared 9 October 2026</div>
+
+<h2>1. What it is</h2>
+<p>A performance-management web application for CalmGlobal: KPI tracking with alerts, staff performance appraisals
+(self-assessment → unit-head review → MD review → final grade), departments, notifications, audit logs,
+PDF/Excel exports, and work-item sync from Azure DevOps / Jira / Asana.</p>
+<table>
+  <tr><th>Component</th><th>Technology</th><th>Where it runs</th></tr>
+  <tr><td>Frontend</td><td>React 18 + Vite + Tailwind 4 (static build)</td><td>IIS site <b>KPI-Web</b> → <code>C:\apps\kpi-platform\frontend\dist</code></td></tr>
+  <tr><td>Backend API</td><td>Node.js / Express 5 + Prisma ORM</td><td>IIS sub-application <b>/api</b> (HttpPlatformHandler) → <code>C:\apps\kpi-platform\backend</code></td></tr>
+  <tr><td>Database</td><td>PostgreSQL 16, database <code>kpi_platform</code></td><td>Same VPS, <code>localhost:5432</code></td></tr>
+  <tr><td>Email</td><td>MailerSend SMTP (calmglobal.com domain)</td><td>Configured in <code>backend\.env</code></td></tr>
+</table>
+
+<h2>2. Addresses &amp; access</h2>
+<table>
+  <tr><th>What</th><th>Address</th></tr>
+  <tr><td>Live application</td><td><b>https://kpi.calmglobal.com</b> (HTTP redirects to HTTPS automatically)</td></tr>
+  <tr><td>API health check</td><td>https://kpi.calmglobal.com/api/health → <code>{"status":"ok", ...}</code></td></tr>
+  <tr><td>Server (VPS)</td><td>OVH Windows Server, <b>158.69.198.49</b> — access via RDP</td></tr>
+  <tr><td>Code — primary</td><td>Azure DevOps: dev.azure.com/calmglobalkoko → project <b>CALMGLOBAL KPI</b></td></tr>
+  <tr><td>Code — mirror</td><td>GitHub: github.com/iamlekside2/kpi-platform</td></tr>
+  <tr><td>Pipeline</td><td>Azure DevOps → Pipelines → CALMGLOBAL KPI</td></tr>
+  <tr><td>DNS</td><td>GoDaddy (calmglobal.com zone): A record <code>kpi → 158.69.198.49</code></td></tr>
+  <tr><td>SSL certificate</td><td>Let's Encrypt via win-acme; <b>renews automatically</b> (scheduled task on the VPS)</td></tr>
+</table>
+
+<h2>3. How to deploy a change (the normal way)</h2>
+<p>Everything is automated through the Azure DevOps pipeline and a self-hosted agent
+(<b>KPI-VPS</b>, pool <b>calm</b>) that runs on the VPS itself:</p>
+<pre>  1. Edit code locally (repo: D:\kpi-platform on the work laptop)
+  2. git add .
+     git commit -m "describe the change"
+     git push azure main        (and optionally: git push origin main)
+  3. Done. The pipeline builds the frontend, installs backend deps,
+     syncs the database schema (prisma db push), copies files into
+     C:\apps\kpi-platform, restarts the backend and health-checks it.</pre>
+<p>Watch progress: Azure DevOps → Pipelines → latest run (~6–8 minutes). Green = deployed and verified.</p>
+<div class="ok"><b>No server access is needed for code changes.</b> RDP to the VPS is only required for
+infrastructure work: new secrets in <code>.env</code>, certificates for new domains, IIS changes.</div>
+
+<h2>4. First-use / user management</h2>
+<table>
+  <tr><th>Action</th><th>How</th></tr>
+  <tr><td>Create an account</td><td>https://kpi.calmglobal.com/register → onboarding creates your organisation and makes you its <b>admin</b></td></tr>
+  <tr><td>Add staff</td><td>Staff page (as admin) — new members get an invite email with temporary password <code>Welcome@123</code> (they must change it after first login)</td></tr>
+  <tr><td>Roles</td><td><b>admin</b> (full org control) · <b>lead</b> (unit-head reviews) · <b>member</b> (self-assessments) — roles are per-organisation; there is no cross-org super-admin</td></tr>
+  <tr><td>Forgot password</td><td>Login page → "Forgot password?" — emails a reset link valid for 15 minutes</td></tr>
+</table>
+<div class="note"><b>Open point:</b> registration is currently public — anyone can create an account and their own
+organisation. For an internal-only tool, restrict registration (e.g. to @calmglobal.com emails or invite-only).</div>
+
+<h2>5. Email</h2>
+<p>Sender: <code>kpi@calmglobal.com</code> via MailerSend SMTP (<code>smtp.mailersend.net:587</code>, calmglobal.com domain verified —
+same account as the RealCousins project). Emails sent: welcome on registration, staff invites, password reset,
+password-changed confirmation, and KPI alert notifications from the sync module.</p>
+<p>Settings live only in <code>C:\apps\kpi-platform\backend\.env</code> (<code>SMTP_*</code>, <code>EMAIL_FROM</code>).
+After changing them: <code>C:\Windows\System32\inetsrv\appcmd.exe recycle apppool /apppool.name:kpi-api</code></p>
+
+<div class="pagebreak"></div>
+
+<h2>6. Server layout (VPS 158.69.198.49)</h2>
+<table>
+  <tr><th>Item</th><th>Value</th></tr>
+  <tr><td>App folder</td><td><code>C:\apps\kpi-platform</code> (git clone; the pipeline overwrites <code>backend/</code> and <code>frontend/dist</code>)</td></tr>
+  <tr><td>IIS site</td><td><b>KPI-Web</b> — bindings: http/https <code>kpi.calmglobal.com</code>; root = frontend <code>dist</code>; sub-app <b>/api</b> = backend</td></tr>
+  <tr><td>App pools</td><td><b>kpi-web</b> (static) · <b>kpi-api</b> (No Managed Code, <b>AlwaysRunning, idle timeout 0</b> — keeps the hourly sync scheduler alive; do not change)</td></tr>
+  <tr><td>Backend secrets</td><td><code>C:\apps\kpi-platform\backend\.env</code> — DATABASE_URL, JWT secrets, FRONTEND_URL, SMTP. <b>Never in git.</b></td></tr>
+  <tr><td>Backend logs</td><td><code>C:\apps\kpi-platform\backend\logs\node_*.log</code> (Node stdout/stderr per process)</td></tr>
+  <tr><td>Build agent</td><td><code>C:\azagent</code> — service <code>vstsagent.calmglobalkoko.calm.KPI-VPS</code>, runs as SYSTEM</td></tr>
+  <tr><td>win-acme (SSL)</td><td><code>C:\tools\win-acme</code> — renewal runs via Windows scheduled task</td></tr>
+  <tr><td>Database</td><td>PostgreSQL 16 (<code>C:\Program Files\PostgreSQL\16</code>), shared with other apps (dossiro etc.); connect as the user set in DATABASE_URL</td></tr>
+</table>
+
+<h2>7. Runbook — common operations (on the VPS, admin PowerShell)</h2>
+<h3>Restart the backend</h3>
+<pre>C:\Windows\System32\inetsrv\appcmd.exe recycle apppool /apppool.name:kpi-api</pre>
+<h3>View recent backend logs</h3>
+<pre>$f = Get-ChildItem C:\apps\kpi-platform\backend\logs\node*.log | Sort-Object LastWriteTime -Descending | Select-Object -First 1; Get-Content $f.FullName -Tail 60</pre>
+<h3>Force a database schema sync (after pulling schema changes manually)</h3>
+<pre>cd C:\apps\kpi-platform\backend; npx prisma db push</pre>
+<h3>Helper scripts in the repo (C:\apps\kpi-platform\deploy)</h3>
+<table>
+  <tr><th>Script</th><th>Purpose</th></tr>
+  <tr><td><code>setup-server.ps1</code></td><td>Full one-time server setup (already done — keep for rebuilds)</td></tr>
+  <tr><td><code>pipeline-deploy.ps1</code></td><td>What the pipeline executes on each push (do not run manually unless debugging)</td></tr>
+  <tr><td><code>fix-db.ps1</code></td><td>Reset/verify DB credentials in .env, create DB, sync, restart</td></tr>
+  <tr><td><code>reset-pg-password.ps1</code></td><td>Recover the postgres superuser password (temporary localhost trust)</td></tr>
+  <tr><td><code>get-ssl.ps1</code> / <code>bind-https.ps1</code></td><td>Issue the Let's Encrypt cert / attach it to the IIS binding</td></tr>
+  <tr><td><code>diagnose-api.ps1</code></td><td>One-shot health report: pools, sites, node processes, logs, IIS errors</td></tr>
+  <tr><td><code>setup-agent.ps1</code></td><td>Install the Azure DevOps build agent (already done)</td></tr>
+</table>
+
+<h2>8. Troubleshooting — known issues &amp; fixes</h2>
+<table>
+  <tr><th>Symptom</th><th>Cause</th><th>Fix</th></tr>
+  <tr><td>/api returns empty <b>403</b>, backend logs empty</td><td>The frontend's SPA rewrite rule inherited into the /api sub-app</td><td>Backend <code>web.config</code> must keep <code>&lt;rewrite&gt;&lt;rules&gt;&lt;clear/&gt;&lt;/rules&gt;&lt;/rewrite&gt;</code> (already in <code>deploy/backend.web.config</code>)</td></tr>
+  <tr><td>"Not allowed by CORS" in logs; login fails</td><td>Site used over plain HTTP</td><td>Use HTTPS (HTTP now auto-redirects). CORS allows only <code>FRONTEND_URL</code> in production</td></tr>
+  <tr><td>500 with Prisma <b>P2022</b> "column does not exist"</td><td>DB schema behind <code>schema.prisma</code> (repo's migration history is incomplete)</td><td><code>npx prisma db push</code> then recycle <code>kpi-api</code> — the pipeline now does this on every deploy</td></tr>
+  <tr><td>Logged out after page refresh</td><td>Refresh cookie is <code>Secure</code> — only works over HTTPS</td><td>Use HTTPS (enforced now)</td></tr>
+  <tr><td>Pipeline stuck "waiting for an agent"</td><td>Agent offline or pool mismatch</td><td>Check service <code>vstsagent.calmglobalkoko.calm.KPI-VPS</code> is running; YAML pool must be <code>calm</code></td></tr>
+  <tr><td>Emails not arriving</td><td>SMTP settings / sender identity</td><td>Check <code>[SMTP]</code> lines in node log; verify sender domain in MailerSend; check spam folder</td></tr>
+  <tr><td>Password reset "fails" silently</td><td>No email provider configured</td><td>Ensure SMTP_* set in <code>.env</code> and restart pool</td></tr>
+</table>
+
+<h2>9. Security notes</h2>
+<div class="danger">
+<b>Rotate when convenient</b> (values were exchanged in chat during setup): the PostgreSQL passwords (both the
+<code>postgres</code> and <code>dossiro</code> users) and the MailerSend SMTP password. After rotating, update
+<code>backend\.env</code> here (and RealCousins' <code>.env</code> for SMTP) and recycle the app pools.
+</div>
+<ul>
+  <li>JWT secrets are random, generated at setup, stored only in <code>backend\.env</code>.</li>
+  <li>Staff invites use fixed temp password <code>Welcome@123</code> — consider changing to random per-invite.</li>
+  <li>Public registration is open (see §4). Decide: restrict, or keep open for multi-tenant use.</li>
+  <li>The Brevo fallback in <code>mailer.js</code> has a hardcoded personal Gmail default sender — harmless while Brevo is unused, but worth cleaning up.</li>
+</ul>
+
+<h2>10. Open product decisions</h2>
+<ol>
+  <li><b>Registration lockdown</b> — restrict to @calmglobal.com / invite-only? (recommended for internal use)</li>
+  <li><b>Platform admin</b> — build a cross-organisation super-admin view, or rely on per-org admins?</li>
+  <li><b>Landing page</b> — the root URL goes straight to login; add a marketing/landing page if the product will be shown externally.</li>
+</ol>
+
+<div class="footer">CalmGlobal KPI Platform — Operations &amp; Deployment Guide · generated 2026-10-09 ·
+repo: dev.azure.com/calmglobalkoko/CALMGLOBAL KPI · live: https://kpi.calmglobal.com</div>
+
+</body>
+</html>

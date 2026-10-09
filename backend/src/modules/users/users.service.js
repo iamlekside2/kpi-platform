@@ -10,6 +10,7 @@ async function getProfile(userId) {
       id: true,
       email: true,
       name: true,
+      integrationEmail: true,
       createdAt: true,
       orgs: {
         select: {
@@ -33,14 +34,22 @@ async function getProfile(userId) {
     role: m.role,
   }));
 
-  return { id: user.id, email: user.email, name: user.name, createdAt: user.createdAt, orgs };
+  return {
+    id: user.id, email: user.email, name: user.name,
+    integrationEmail: user.integrationEmail, createdAt: user.createdAt, orgs,
+  };
 }
 
-async function updateProfile(userId, { name }) {
+async function updateProfile(userId, { name, integrationEmail }) {
+  const data = { name };
+  if (integrationEmail !== undefined) {
+    // empty string clears the mapping
+    data.integrationEmail = integrationEmail ? integrationEmail.trim().toLowerCase() : null;
+  }
   const user = await prisma.user.update({
     where: { id: userId },
-    data: { name },
-    select: { id: true, email: true, name: true, createdAt: true },
+    data,
+    select: { id: true, email: true, name: true, integrationEmail: true, createdAt: true },
   });
 
   return user;

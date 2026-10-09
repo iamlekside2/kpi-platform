@@ -24,6 +24,7 @@ export default function ProfilePage() {
   // Profile state
   const [profile, setProfile] = useState(null);
   const [name, setName] = useState('');
+  const [integrationEmail, setIntegrationEmail] = useState('');
   const [profileLoading, setProfileLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -45,6 +46,7 @@ export default function ProfilePage() {
         const { data } = await api.get('/users/me');
         setProfile(data);
         setName(data.name);
+        setIntegrationEmail(data.integrationEmail || '');
       } catch {
         // fallback to auth context data
         if (user) {
@@ -66,7 +68,10 @@ export default function ProfilePage() {
     setProfileMsg({ type: '', text: '' });
 
     try {
-      const { data } = await api.patch('/users/me', { name: name.trim() });
+      const { data } = await api.patch('/users/me', {
+        name: name.trim(),
+        integrationEmail: integrationEmail.trim(),
+      });
       setProfile((prev) => ({ ...prev, ...data }));
       // Update AuthContext so Navbar reflects immediately
       setUser((prev) => ({ ...prev, name: data.name }));
@@ -179,6 +184,18 @@ export default function ProfilePage() {
               placeholder="Your full name"
             />
 
+            <Input
+              label="Azure DevOps Email (optional)"
+              type="email"
+              value={integrationEmail}
+              onChange={(e) => setIntegrationEmail(e.target.value)}
+              placeholder="e.g. your.name@gmail.com"
+            />
+            <p className="text-xs text-slate-500 -mt-2 mb-4">
+              If your Azure DevOps / Jira account uses a different email (e.g. a personal Gmail),
+              enter it here so your synced tasks are matched to you.
+            </p>
+
             <AnimatePresence>
               {profileMsg.text && (
                 <motion.div
@@ -198,7 +215,7 @@ export default function ProfilePage() {
 
             <Button
               type="submit"
-              disabled={saving || name.trim() === profile?.name}
+              disabled={saving || (name.trim() === profile?.name && integrationEmail.trim() === (profile?.integrationEmail || ''))}
             >
               {saving ? 'Saving...' : 'Save Changes'}
             </Button>

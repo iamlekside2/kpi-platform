@@ -12,6 +12,7 @@ model User {
   email               String             @unique
   name                String
   password            String
+  integrationEmail    String?            // email used in external tools (e.g. ADO AssignedTo), when different from login email
   orgs                OrgMember[]
   employeeAppraisals  Appraisal[]        @relation("EmployeeAppraisals")
   reviewerAppraisals  Appraisal[]        @relation("ReviewerAppraisals")

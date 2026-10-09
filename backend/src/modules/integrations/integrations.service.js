@@ -226,13 +226,16 @@ async function syncMemberWorkItems({ integrationId, userId, periodFrom, periodTo
   // Get all org members with their emails
   const orgMembers = await prisma.orgMember.findMany({
     where: { orgId: integration.orgId },
-    include: { user: { select: { id: true, email: true, name: true } } },
+    include: { user: { select: { id: true, email: true, name: true, integrationEmail: true } } },
   });
 
-  // Build email → userId lookup
+  // Build email → userId lookup (login email + optional external-tool email)
   const emailToUser = {};
   for (const m of orgMembers) {
     emailToUser[m.user.email.toLowerCase()] = m.user.id;
+    if (m.user.integrationEmail) {
+      emailToUser[m.user.integrationEmail.toLowerCase()] = m.user.id;
+    }
   }
 
   let matched = 0;
