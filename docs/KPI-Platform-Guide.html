@@ -27,7 +27,7 @@
 <body>
 
 <h1>CalmGlobal KPI Platform</h1>
-<div class="subtitle">Operations &amp; Deployment Guide — prepared 9 October 2026</div>
+<div class="subtitle">Operations &amp; Deployment Guide — updated 9 October 2026 (v2)</div>
 
 <h2>1. What it is</h2>
 <p>A performance-management web application for CalmGlobal: KPI tracking with alerts, staff performance appraisals
@@ -68,21 +68,33 @@ PDF/Excel exports, and work-item sync from Azure DevOps / Jira / Asana.</p>
 <div class="ok"><b>No server access is needed for code changes.</b> RDP to the VPS is only required for
 infrastructure work: new secrets in <code>.env</code>, certificates for new domains, IIS changes.</div>
 
-<h2>4. First-use / user management</h2>
+<h2>4. Users, roles &amp; registration</h2>
 <table>
   <tr><th>Action</th><th>How</th></tr>
-  <tr><td>Create an account</td><td>https://kpi.calmglobal.com/register → onboarding creates your organisation and makes you its <b>admin</b></td></tr>
-  <tr><td>Add staff</td><td>Staff page (as admin) — new members get an invite email with temporary password <code>Welcome@123</code> (they must change it after first login)</td></tr>
-  <tr><td>Roles</td><td><b>admin</b> (full org control) · <b>lead</b> (unit-head reviews) · <b>member</b> (self-assessments) — roles are per-organisation; there is no cross-org super-admin</td></tr>
+  <tr><td>Create an account</td><td>https://kpi.calmglobal.com/register → onboarding creates your organisation and makes you its <b>admin</b>. <b>One self-registration per company domain</b>: once the first person from a company registered, colleagues with the same email domain are blocked and must be added by the admin (public providers like Gmail are exempt).</td></tr>
+  <tr><td>Add staff</td><td>Staff page (as admin) — new members get an invite email with temporary password <code>Welcome@123</code> (they must change it after first login: Settings → Security)</td></tr>
+  <tr><td>Roles</td><td><b>admin</b> (HR: full org control, admin comments) · <b>lead</b> (Unit Head: team dashboard + Section 2 reviews) · <b>md</b> (sees everything, writes the final MD comments/score) · <b>chairman</b> (view-only access to everything) · <b>member</b> (self-assessments, own data)</td></tr>
+  <tr><td>Dashboards</td><td>Role-aware: <b>lead</b> → "My Team" (pending reviews, team ADO stats) · <b>md/chairman</b> → "Executive Overview" (completion %, avg score, grade/department charts, staff performance table) · admin/member → org dashboard</td></tr>
+  <tr><td>Azure DevOps identity</td><td>If someone's ADO account uses a different email (e.g. personal Gmail), they set it themselves: Profile → "Azure DevOps Email" — the staff sync matches either address</td></tr>
   <tr><td>Forgot password</td><td>Login page → "Forgot password?" — emails a reset link valid for 15 minutes</td></tr>
 </table>
-<div class="note"><b>Open point:</b> registration is currently public — anyone can create an account and their own
-organisation. For an internal-only tool, restrict registration (e.g. to @calmglobal.com emails or invite-only).</div>
 
-<h2>5. Email</h2>
+<h2>5. Email (configured &amp; verified working)</h2>
 <p>Sender: <code>kpi@calmglobal.com</code> via MailerSend SMTP (<code>smtp.mailersend.net:587</code>, calmglobal.com domain verified —
 same account as the RealCousins project). Emails sent: welcome on registration, staff invites, password reset,
 password-changed confirmation, and KPI alert notifications from the sync module.</p>
+<h2>5b. Azure DevOps integration — what it captures</h2>
+<p>Admin connects it in Settings → Integrations (org URL <code>https://dev.azure.com/calmglobal</code> + a PAT with
+Work Items Read scope). Two sync types, both also run hourly by the scheduler:</p>
+<ul>
+  <li><b>Sync KPIs</b> — auto-creates and updates 8 org KPIs (last 30 days unless noted): Tasks Completed, Open Items,
+  Blocked Count, Items Created, Bugs Created, Bugs Fixed, Open Bugs (live snapshot), Story Points Completed.</li>
+  <li><b>Sync Staff Tasks</b> — attaches each person's work items to their profile (used in appraisals and the
+  team/executive dashboards); matches by login email or the per-user "Azure DevOps Email".</li>
+</ul>
+<p>The state mapping understands the CalmGlobal custom board states (<code>Done Deployed</code>, <code>In Sprint</code>,
+<code>Confirmed Awaiting QA/Release</code> → open, <code>Pending Issues</code> → blocked, etc.). Sync results and errors:
+Settings → Sync History.</p>
 <p>Settings live only in <code>C:\apps\kpi-platform\backend\.env</code> (<code>SMTP_*</code>, <code>EMAIL_FROM</code>).
 After changing them: <code>C:\Windows\System32\inetsrv\appcmd.exe recycle apppool /apppool.name:kpi-api</code></p>
 
@@ -147,9 +159,9 @@ After changing them: <code>C:\Windows\System32\inetsrv\appcmd.exe recycle apppoo
 
 <h2>10. Open product decisions</h2>
 <ol>
-  <li><b>Registration lockdown</b> — restrict to @calmglobal.com / invite-only? (recommended for internal use)</li>
-  <li><b>Platform admin</b> — build a cross-organisation super-admin view, or rely on per-org admins?</li>
-  <li><b>Landing page</b> — the root URL goes straight to login; add a marketing/landing page if the product will be shown externally.</li>
+  <li><del>Registration lockdown</del> — <b>done</b>: one self-registration per company domain; colleagues join by admin invite.</li>
+  <li><del>Executive visibility</del> — <b>done</b>: MD and Chairman roles with the Executive Overview dashboard.</li>
+  <li><b>Landing page</b> — the root URL goes straight to login; add a marketing/landing page if the product will be shown externally. Still open.</li>
 </ol>
 
 <div class="footer">CalmGlobal KPI Platform — Operations &amp; Deployment Guide · generated 2026-10-09 ·
