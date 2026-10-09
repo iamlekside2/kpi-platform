@@ -14,7 +14,7 @@
 $ErrorActionPreference = 'Stop'
 
 $OrgUrl    = 'https://dev.azure.com/calmglobalkoko'
-$Pool      = 'Default'
+$Pool      = 'calm'   # pool owned by Lekan (Administrator role confirmed)
 $AgentName = 'KPI-VPS'
 $AgentDir  = 'C:\azagent'
 
