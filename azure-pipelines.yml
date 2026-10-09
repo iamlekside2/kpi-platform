@@ -1,0 +1,30 @@
+# KPI Platform — CI/CD to the CalmGlobal VPS.
+# Runs on the self-hosted agent installed ON the VPS (pool "Default"),
+# so "deploy" is just building and copying files locally on the server.
+
+trigger:
+  branches:
+    include:
+      - main
+
+pool:
+  name: Default   # the self-hosted agent on the VPS
+
+steps:
+  - checkout: self
+    clean: false
+
+  - powershell: |
+      cd frontend
+      npm ci
+      npm run build
+    displayName: Build frontend
+
+  - powershell: |
+      cd backend
+      npm ci
+    displayName: Install backend deps (runs prisma generate)
+
+  - powershell: |
+      powershell -ExecutionPolicy Bypass -File deploy/pipeline-deploy.ps1
+    displayName: Deploy to IIS
