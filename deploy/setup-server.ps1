@@ -10,9 +10,9 @@
 #   3. Backend: creates .env (auto-generates JWT secrets), npm ci,
 #      creates the kpi_platform database, runs prisma migrations
 #   4. Frontend: npm ci + production build
-#   5. Creates two IIS sites:
-#        kpi-api.calmglobal.com  -> Node backend via HttpPlatformHandler
-#        kpi.calmglobal.com      -> static SPA (dist/)
+#   5. Creates ONE IIS site, kpi.calmglobal.com:
+#        /     -> static SPA (frontend/dist)
+#        /api  -> Node backend sub-application via HttpPlatformHandler
 #   6. Leaves HTTPS to get-ssl.ps1 (run after DNS points here)
 # ============================================================================
 
@@ -21,7 +21,6 @@ $ErrorActionPreference = 'Stop'
 # ── Config ──────────────────────────────────────────────────────────────────
 $RepoUrl  = 'https://github.com/iamlekside2/kpi-platform.git'
 $AppRoot  = 'C:\apps\kpi-platform'
-$ApiHost  = 'kpi-api.calmglobal.com'
 $WebHost  = 'kpi.calmglobal.com'
 $DbName   = 'kpi_platform'
 
@@ -161,36 +160,35 @@ foreach ($pool in 'kpi-api','kpi-web') {
 Set-ItemProperty 'IIS:\AppPools\kpi-api' -Name startMode -Value 'AlwaysRunning'
 Set-ItemProperty 'IIS:\AppPools\kpi-api' -Name processModel.idleTimeout -Value ([TimeSpan]::Zero)
 
-Step 'Creating sites'
-if (-not (Get-Website -Name 'KPI-API' -ErrorAction SilentlyContinue)) {
-    New-Website -Name 'KPI-API' -PhysicalPath $backend -ApplicationPool 'kpi-api' -HostHeader $ApiHost -Port 80 | Out-Null
-} else {
-    Set-ItemProperty 'IIS:\Sites\KPI-API' -Name physicalPath -Value $backend
-}
-Set-ItemProperty 'IIS:\Sites\KPI-API' -Name applicationDefaults.preloadEnabled -Value $true
-
+Step 'Creating site (SPA at /, backend at /api)'
 if (-not (Get-Website -Name 'KPI-Web' -ErrorAction SilentlyContinue)) {
     New-Website -Name 'KPI-Web' -PhysicalPath "$AppRoot\frontend\dist" -ApplicationPool 'kpi-web' -HostHeader $WebHost -Port 80 | Out-Null
 } else {
     Set-ItemProperty 'IIS:\Sites\KPI-Web' -Name physicalPath -Value "$AppRoot\frontend\dist"
 }
 
+if (-not (Get-WebApplication -Site 'KPI-Web' -Name 'api' -ErrorAction SilentlyContinue)) {
+    New-WebApplication -Site 'KPI-Web' -Name 'api' -PhysicalPath $backend -ApplicationPool 'kpi-api' | Out-Null
+} else {
+    Set-ItemProperty 'IIS:\Sites\KPI-Web\api' -Name physicalPath -Value $backend
+}
+# preload so the Node process (and sync scheduler) starts with IIS, not on first hit
+Set-ItemProperty 'IIS:\Sites\KPI-Web\api' -Name preloadEnabled -Value $true
+
 Step 'File permissions for app pool identities'
 icacls $AppRoot /grant 'IIS_IUSRS:(OI)(CI)RX' /T /Q | Out-Null
 icacls "$backend\logs" /grant 'IIS_IUSRS:(OI)(CI)M' /Q | Out-Null
 
-Step 'Starting sites'
-Start-Website 'KPI-API'
+Step 'Starting site'
 Start-Website 'KPI-Web'
 
 Write-Host ''
 Write-Host '============================================================' -ForegroundColor Green
 Write-Host ' Setup complete.' -ForegroundColor Green
 Write-Host ''
-Write-Host ' Next steps:'
-Write-Host "  1. In GoDaddy DNS for calmglobal.com add two A records -> this server's IP:"
-Write-Host "       kpi-api   A   158.69.198.49"
-Write-Host "       kpi       A   158.69.198.49"
-Write-Host '  2. Wait for DNS to resolve (nslookup kpi-api.calmglobal.com)'
-Write-Host '  3. Run get-ssl.ps1 to issue the Let''s Encrypt certificate (HTTPS)'
+Write-Host ' DNS: kpi.calmglobal.com already points at this server.'
+Write-Host ' Next: run get-ssl.ps1 to issue the Let''s Encrypt certificate (HTTPS),'
+Write-Host ' then test:'
+Write-Host '   https://kpi.calmglobal.com/api/health'
+Write-Host '   https://kpi.calmglobal.com'
 Write-Host '============================================================' -ForegroundColor Green

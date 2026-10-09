@@ -1,7 +1,7 @@
 # ============================================================================
 # KPI Platform — issue Let's Encrypt certificates for the two IIS sites.
-# Run ON THE VPS as Administrator, AFTER the DNS records for
-# kpi-api.calmglobal.com and kpi.calmglobal.com point at this server.
+# Run ON THE VPS as Administrator, AFTER the DNS record for
+# kpi.calmglobal.com points at this server (it already does).
 #
 #   powershell -ExecutionPolicy Bypass -File get-ssl.ps1
 #
@@ -12,7 +12,6 @@
 
 $ErrorActionPreference = 'Stop'
 
-$ApiHost = 'kpi-api.calmglobal.com'
 $WebHost = 'kpi.calmglobal.com'
 $Email   = 'ootitolaye@calmglobal.com'   # Let's Encrypt expiry notices
 $Dir     = 'C:\tools\win-acme'
@@ -28,18 +27,18 @@ if (-not (Test-Path "$Dir\wacs.exe")) {
 }
 
 Write-Host '==> Requesting certificate' -ForegroundColor Cyan
-# --source iis reads the existing port-80 bindings for these hostnames and
-# adds the matching HTTPS bindings after the cert is issued.
-& "$Dir\wacs.exe" --source iis --host "$ApiHost,$WebHost" `
+# --source iis reads the existing port-80 binding for this hostname and
+# adds the matching HTTPS binding after the cert is issued.
+& "$Dir\wacs.exe" --source iis --host $WebHost `
     --accepttos --emailaddress $Email
 
 if ($LASTEXITCODE -ne 0) {
     Write-Warning 'Scripted mode failed — launching win-acme interactive menu instead.'
-    Write-Warning 'Choose: N (new certificate) -> select the KPI-API and KPI-Web bindings.'
+    Write-Warning 'Choose: N (new certificate) -> select the KPI-Web binding.'
     & "$Dir\wacs.exe"
 }
 
 Write-Host ''
 Write-Host 'If win-acme reported success, test:' -ForegroundColor Green
-Write-Host "  https://$ApiHost/api/health"
+Write-Host "  https://$WebHost/api/health"
 Write-Host "  https://$WebHost"

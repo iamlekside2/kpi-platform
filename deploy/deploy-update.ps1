@@ -30,4 +30,4 @@ Copy-Item "$AppRoot\deploy\frontend.web.config" "$AppRoot\frontend\dist\web.conf
 Write-Host '==> Restarting backend' -ForegroundColor Cyan
 Restart-WebAppPool 'kpi-api'
 
-Write-Host 'Done. Check https://kpi-api.calmglobal.com/api/health' -ForegroundColor Green
+Write-Host 'Done. Check https://kpi.calmglobal.com/api/health' -ForegroundColor Green
