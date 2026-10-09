@@ -8,7 +8,7 @@ trigger:
       - main
 
 pool:
-  name: Realcousins-pool   # existing self-hosted agent on the VPS
+  name: Default   # dedicated KPI agent on the VPS (runs as SYSTEM)
 
 steps:
   - checkout: self
