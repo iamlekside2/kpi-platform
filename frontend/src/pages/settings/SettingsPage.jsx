@@ -37,15 +37,12 @@ export default function SettingsPage() {
   const [connecting, setConnecting] = useState(false);
   const [syncingMembers, setSyncingMembers] = useState(false);
   const [memberSyncResult, setMemberSyncResult] = useState(null);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
 
   // Change-password form
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [changingPassword, setChangingPassword] = useState(false);
-  const [passwordMsg, setPasswordMsg] = useState({ type: '', text: '' });
 
   const TABS = [
     { key: 'appearance', label: 'Appearance', icon: Palette },
@@ -75,31 +72,29 @@ export default function SettingsPage() {
 
   async function handleChangePassword(e) {
     e.preventDefault();
-    setPasswordMsg({ type: '', text: '' });
 
     if (!currentPassword || !newPassword || !confirmPassword) {
-      setPasswordMsg({ type: 'error', text: 'All fields are required' });
+      toast.error('All fields are required');
       return;
     }
     if (newPassword.length < 6) {
-      setPasswordMsg({ type: 'error', text: 'New password must be at least 6 characters' });
+      toast.error('New password must be at least 6 characters');
       return;
     }
     if (newPassword !== confirmPassword) {
-      setPasswordMsg({ type: 'error', text: 'New passwords do not match' });
+      toast.error('New passwords do not match');
       return;
     }
 
     setChangingPassword(true);
     try {
       await api.patch('/users/me/password', { currentPassword, newPassword });
-      setPasswordMsg({ type: 'success', text: 'Password changed successfully!' });
+      toast.success('Password changed successfully!');
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
-      setTimeout(() => setPasswordMsg({ type: '', text: '' }), 4000);
     } catch (err) {
-      setPasswordMsg({ type: 'error', text: err.response?.data?.error || 'Failed to change password' });
+      toast.error(err.response?.data?.error || 'Failed to change password');
     } finally {
       setChangingPassword(false);
     }
@@ -107,7 +102,6 @@ export default function SettingsPage() {
 
   async function handleConnect(e) {
     e.preventDefault();
-    setError('');
     setConnecting(true);
     try {
       const payload = {
@@ -124,10 +118,9 @@ export default function SettingsPage() {
       setIntegrations((prev) => [data, ...prev]);
       setConnectForm(null);
       setFormData({});
-      setSuccess('Integration connected and verified!');
-      setTimeout(() => setSuccess(''), 3000);
+      toast.success('Integration connected and verified!');
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to connect');
+      toast.error(err.response?.data?.error || 'Failed to connect');
     } finally {
       setConnecting(false);
     }
@@ -136,12 +129,11 @@ export default function SettingsPage() {
   async function handleSync(integrationId) {
     try {
       await api.post(`/integrations/${integrationId}/sync`);
-      setSuccess('Sync completed!');
-      setTimeout(() => setSuccess(''), 3000);
+      toast.success('Sync completed!');
       const { data } = await api.get(`/integrations/org/${orgId}/logs`);
       setSyncLogs(data);
     } catch (err) {
-      setError(err.response?.data?.error || 'Sync failed');
+      toast.error(err.response?.data?.error || 'Sync failed');
     }
   }
 
@@ -163,7 +155,6 @@ export default function SettingsPage() {
   }
 
   async function handleSyncMembers(integrationId) {
-    setError('');
     setMemberSyncResult(null);
     setSyncingMembers(true);
     try {
@@ -179,10 +170,9 @@ export default function SettingsPage() {
         periodTo,
       });
       setMemberSyncResult({ ...data, _integrationId: integrationId });
-      setSuccess(`Synced staff tasks: ${data.matched} of ${data.totalAdoUsers} ADO users matched`);
-      setTimeout(() => setSuccess(''), 5000);
+      toast.success(`Synced staff tasks: ${data.matched} of ${data.totalAdoUsers} ADO users matched`);
     } catch (err) {
-      setError(err.response?.data?.error || 'Staff task sync failed');
+      toast.error(err.response?.data?.error || 'Staff task sync failed');
     } finally {
       setSyncingMembers(false);
     }
@@ -230,30 +220,6 @@ export default function SettingsPage() {
             );
           })}
         </div>
-
-        {/* Messages */}
-        <AnimatePresence>
-          {error && (
-            <motion.div
-              initial={{ opacity: 0, y: -6 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0 }}
-              className="mb-4 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-lg text-sm text-red-400"
-            >
-              {error}
-            </motion.div>
-          )}
-          {success && (
-            <motion.div
-              initial={{ opacity: 0, y: -6 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0 }}
-              className="mb-4 px-4 py-3 bg-emerald-500/10 border border-emerald-500/20 rounded-lg text-sm text-emerald-400"
-            >
-              {success}
-            </motion.div>
-          )}
-        </AnimatePresence>
 
         {/* Appearance Tab */}
         {tab === 'appearance' && (
@@ -377,23 +343,6 @@ export default function SettingsPage() {
                   placeholder="Re-enter new password"
                   error={confirmPassword && newPassword !== confirmPassword ? 'Passwords do not match' : ''}
                 />
-
-                <AnimatePresence>
-                  {passwordMsg.text && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -4 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0 }}
-                      className={`mb-4 px-4 py-2.5 rounded-lg text-sm border ${
-                        passwordMsg.type === 'success'
-                          ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
-                          : 'bg-red-500/10 border-red-500/20 text-red-400'
-                      }`}
-                    >
-                      {passwordMsg.text}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
 
                 <Button
                   type="submit"

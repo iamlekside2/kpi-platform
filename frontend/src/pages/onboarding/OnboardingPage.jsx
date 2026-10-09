@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
+import { useToast } from '../../context/ToastContext';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
 
@@ -16,14 +17,13 @@ export default function OnboardingPage() {
   const [selectedTemplates, setSelectedTemplates] = useState([]);
   const [inviteEmail, setInviteEmail] = useState('');
   const [invitedEmails, setInvitedEmails] = useState([]);
-  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { loadOrgRole } = useAuth();
+  const toast = useToast();
   const navigate = useNavigate();
 
   async function handleCreateOrg(e) {
     e.preventDefault();
-    setError('');
     setLoading(true);
     try {
       const { data } = await api.post('/orgs', { name: orgName });
@@ -32,7 +32,7 @@ export default function OnboardingPage() {
       setTemplates(templatesRes.data);
       setStep(1);
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to create organisation');
+      toast.error(err.response?.data?.error || 'Failed to create organisation');
     } finally {
       setLoading(false);
     }
@@ -49,16 +49,15 @@ export default function OnboardingPage() {
 
   async function handleApplyTemplates() {
     if (selectedTemplates.length === 0) {
-      setError('Please select at least one template');
+      toast.error('Please select at least one template');
       return;
     }
-    setError('');
     setLoading(true);
     try {
       await api.post(`/templates/apply/${org.id}`, { templateKeys: selectedTemplates });
       setStep(2);
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to apply templates');
+      toast.error(err.response?.data?.error || 'Failed to apply templates');
     } finally {
       setLoading(false);
     }
@@ -66,14 +65,13 @@ export default function OnboardingPage() {
 
   async function handleInvite(e) {
     e.preventDefault();
-    setError('');
     if (!inviteEmail) return;
     try {
       await api.post(`/orgs/${org.id}/invite`, { email: inviteEmail });
       setInvitedEmails([...invitedEmails, inviteEmail]);
       setInviteEmail('');
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to invite user');
+      toast.error(err.response?.data?.error || 'Failed to invite user');
     }
   }
 
@@ -125,16 +123,6 @@ export default function OnboardingPage() {
               </div>
             ))}
           </div>
-
-          {error && (
-            <motion.div
-              initial={{ opacity: 0, y: -6 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="mb-4 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-lg text-sm text-red-400"
-            >
-              {error}
-            </motion.div>
-          )}
 
           <AnimatePresence mode="wait">
             {/* Step 1: Name org */}

@@ -36,13 +36,10 @@ export default function StaffPage() {
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState('member');
   const [inviteDeptId, setInviteDeptId] = useState('');
-  const [inviteError, setInviteError] = useState('');
-  const [inviteSuccess, setInviteSuccess] = useState('');
   const [inviting, setInviting] = useState(false);
   const [editingMember, setEditingMember] = useState(null);
   const [editingDept, setEditingDept] = useState(null);
   const [filterDept, setFilterDept] = useState('all');
-  const [error, setError] = useState('');
 
   const isAdmin = orgRole === 'admin';
 
@@ -63,7 +60,7 @@ export default function StaffPage() {
       setMembers(data);
     } catch (err) {
       console.error('Failed to load members:', err);
-      setError('Failed to load staff members');
+      toast.error('Failed to load staff members');
     } finally {
       setLoading(false);
     }
@@ -81,8 +78,6 @@ export default function StaffPage() {
   async function handleInvite(e) {
     e.preventDefault();
     setInviting(true);
-    setInviteError('');
-    setInviteSuccess('');
     try {
       const { data } = await api.post(`/orgs/${activeOrg.id}/invite`, {
         email: inviteEmail,
@@ -96,10 +91,9 @@ export default function StaffPage() {
       setInviteEmail('');
       setInviteRole('member');
       setInviteDeptId('');
-      setInviteSuccess(`${data.name} added! Default password: Welcome@123`);
-      setTimeout(() => setInviteSuccess(''), 8000);
+      toast.success(`${data.name} added! Default password: Welcome@123`);
     } catch (err) {
-      setInviteError(err.response?.data?.error || 'Failed to invite member');
+      toast.error(err.response?.data?.error || 'Failed to invite member');
     } finally {
       setInviting(false);
     }
@@ -233,17 +227,6 @@ export default function StaffPage() {
           ))}
         </div>
 
-        {/* Success message */}
-        {inviteSuccess && (
-          <motion.div
-            initial={{ opacity: 0, y: -6 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mb-4 px-4 py-3 bg-emerald-500/10 border border-emerald-500/20 rounded-lg text-sm text-emerald-400"
-          >
-            {inviteSuccess}
-          </motion.div>
-        )}
-
         {/* Invite Modal */}
         <AnimatePresence>
           {showInvite && (
@@ -324,12 +307,6 @@ export default function StaffPage() {
                     </div>
                   </div>
 
-                  {inviteError && (
-                    <div className="mb-3 px-3 py-2 bg-red-500/10 border border-red-500/20 rounded-lg text-xs text-red-400">
-                      {inviteError}
-                    </div>
-                  )}
-
                   <div className="mb-3 px-3 py-2 bg-slate-800/50 border border-white/[0.06] rounded-lg text-[11px] text-slate-500">
                     Default password: <span className="font-mono text-slate-300">Welcome@123</span> — staff should change it after first login.
                   </div>
@@ -351,8 +328,6 @@ export default function StaffPage() {
           <div className="flex items-center justify-center py-20">
             <div className="w-8 h-8 border-2 border-accent-500 border-t-transparent rounded-full animate-spin" />
           </div>
-        ) : error ? (
-          <div className="text-center py-20 text-red-400">{error}</div>
         ) : (
           <div className="space-y-2">
             {filteredMembers.map((m, i) => {

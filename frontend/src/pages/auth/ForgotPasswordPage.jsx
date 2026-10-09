@@ -2,18 +2,18 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import api from '../../services/api';
+import { useToast } from '../../context/ToastContext';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
-  const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const toast = useToast();
 
   async function handleSubmit(e) {
     e.preventDefault();
-    setError('');
     setSuccess('');
     setSubmitting(true);
 
@@ -22,7 +22,7 @@ export default function ForgotPasswordPage() {
       setSuccess(data.message || 'If an account exists with that email, a password reset link has been sent.');
       setEmail('');
     } catch (err) {
-      setError(err.response?.data?.error || 'Something went wrong. Please try again.');
+      toast.error(err.response?.data?.error || 'Something went wrong. Please try again.');
     } finally {
       setSubmitting(false);
     }
@@ -46,16 +46,6 @@ export default function ForgotPasswordPage() {
               Enter your email address and we'll send you a link to reset your password.
             </p>
           </div>
-
-          {error && (
-            <motion.div
-              initial={{ opacity: 0, y: -6 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="mb-4 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-lg text-sm text-red-400"
-            >
-              {error}
-            </motion.div>
-          )}
 
           {success && (
             <motion.div

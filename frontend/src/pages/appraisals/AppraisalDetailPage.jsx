@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
+import { useToast } from '../../context/ToastContext';
 import PageWrapper from '../../components/layout/PageWrapper';
 import Button from '../../components/ui/Button';
 
@@ -31,12 +32,12 @@ const ROLE_LABELS = {
 export default function AppraisalDetailPage() {
   const { id } = useParams();
   const { user, orgRole } = useAuth();
+  const toast = useToast();
   const navigate = useNavigate();
   const [appraisal, setAppraisal] = useState(null);
   const [formStructure, setFormStructure] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [success, setSuccess] = useState('');
   const [activeSection, setActiveSection] = useState(null); // set after load based on role
   const [exporting, setExporting] = useState(false);
   const [workItemData, setWorkItemData] = useState(null);
@@ -158,7 +159,7 @@ export default function AppraisalDetailPage() {
         technicalAnswers,
       });
       setAppraisal(data);
-      showSuccess('Draft saved!');
+      toast.success('Draft saved!');
     } catch (err) {
       console.error('Save failed:', err);
     } finally {
@@ -176,7 +177,7 @@ export default function AppraisalDetailPage() {
       });
       const { data } = await api.post(`/appraisals/${id}/submit`);
       setAppraisal(data);
-      showSuccess('Appraisal submitted for review!');
+      toast.success('Appraisal submitted for review!');
     } catch (err) {
       console.error('Submit failed:', err);
     } finally {
@@ -192,7 +193,7 @@ export default function AppraisalDetailPage() {
         unitHeadComment,
       });
       setAppraisal(data);
-      showSuccess('Unit Head review saved!');
+      toast.success('Unit Head review saved!');
     } catch (err) {
       console.error('Unit head save failed:', err);
     } finally {
@@ -205,7 +206,7 @@ export default function AppraisalDetailPage() {
     try {
       const { data } = await api.patch(`/appraisals/${id}/admin`, { adminComment });
       setAppraisal(data);
-      showSuccess('Admin comment saved!');
+      toast.success('Admin comment saved!');
     } catch (err) {
       console.error('Admin save failed:', err);
     } finally {
@@ -218,7 +219,7 @@ export default function AppraisalDetailPage() {
     try {
       const { data } = await api.patch(`/appraisals/${id}/md`, { mdComment, mdScore: Number(mdScore) });
       setAppraisal(data);
-      showSuccess('MD comment saved. Appraisal completed!');
+      toast.success('MD comment saved. Appraisal completed!');
     } catch (err) {
       console.error('MD save failed:', err);
     } finally {
@@ -243,11 +244,6 @@ export default function AppraisalDetailPage() {
     } finally {
       setExporting(false);
     }
-  }
-
-  function showSuccess(msg) {
-    setSuccess(msg);
-    setTimeout(() => setSuccess(''), 3000);
   }
 
   if (loading) {
@@ -308,17 +304,6 @@ export default function AppraisalDetailPage() {
             )}
           </div>
         </div>
-
-        {/* Success message */}
-        {success && (
-          <motion.div
-            initial={{ opacity: 0, y: -6 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mb-4 px-4 py-3 bg-emerald-500/10 border border-emerald-500/20 rounded-lg text-sm text-emerald-400"
-          >
-            {success}
-          </motion.div>
-        )}
 
         {/* Role info banner for staff */}
         {role === 'member' && !isEmployee && (

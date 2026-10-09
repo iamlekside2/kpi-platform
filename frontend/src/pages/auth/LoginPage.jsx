@@ -2,27 +2,27 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
+import { useToast } from '../../context/ToastContext';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const { login } = useAuth();
+  const toast = useToast();
   const navigate = useNavigate();
 
   async function handleSubmit(e) {
     e.preventDefault();
-    setError('');
     setSubmitting(true);
 
     try {
       await login(email, password);
       navigate('/dashboard');
     } catch (err) {
-      setError(err.response?.data?.error || 'Login failed');
+      toast.error(err.response?.data?.error || 'Login failed');
     } finally {
       setSubmitting(false);
     }
@@ -46,16 +46,6 @@ export default function LoginPage() {
             <h1 className="text-2xl font-bold text-white mb-2">Sign In</h1>
             <p className="text-sm text-slate-400">Welcome back to KPI Platform</p>
           </div>
-
-          {error && (
-            <motion.div
-              initial={{ opacity: 0, y: -6 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="mb-4 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-lg text-sm text-red-400"
-            >
-              {error}
-            </motion.div>
-          )}
 
           <form onSubmit={handleSubmit} className="space-y-1">
             <Input

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
+import { useToast } from '../../context/ToastContext';
 import api from '../../services/api';
 import PageWrapper from '../../components/layout/PageWrapper';
 import Button from '../../components/ui/Button';
@@ -20,6 +21,7 @@ const ROLE_LABELS = {
 
 export default function ProfilePage() {
   const { user, setUser } = useAuth();
+  const toast = useToast();
 
   // Profile state
   const [profile, setProfile] = useState(null);
@@ -35,10 +37,6 @@ export default function ProfilePage() {
   const [changingPassword, setChangingPassword] = useState(false);
   const [showCurrentPw, setShowCurrentPw] = useState(false);
   const [showNewPw, setShowNewPw] = useState(false);
-
-  // Messages
-  const [profileMsg, setProfileMsg] = useState({ type: '', text: '' });
-  const [passwordMsg, setPasswordMsg] = useState({ type: '', text: '' });
 
   useEffect(() => {
     async function loadProfile() {
@@ -65,7 +63,6 @@ export default function ProfilePage() {
     if (!name.trim()) return;
 
     setSaving(true);
-    setProfileMsg({ type: '', text: '' });
 
     try {
       const { data } = await api.patch('/users/me', {
@@ -75,10 +72,9 @@ export default function ProfilePage() {
       setProfile((prev) => ({ ...prev, ...data }));
       // Update AuthContext so Navbar reflects immediately
       setUser((prev) => ({ ...prev, name: data.name }));
-      setProfileMsg({ type: 'success', text: 'Profile updated successfully!' });
-      setTimeout(() => setProfileMsg({ type: '', text: '' }), 4000);
+      toast.success('Profile updated successfully!');
     } catch (err) {
-      setProfileMsg({ type: 'error', text: err.response?.data?.error || 'Failed to update profile' });
+      toast.error(err.response?.data?.error || 'Failed to update profile');
     } finally {
       setSaving(false);
     }
@@ -86,20 +82,19 @@ export default function ProfilePage() {
 
   async function handleChangePassword(e) {
     e.preventDefault();
-    setPasswordMsg({ type: '', text: '' });
 
     if (!currentPassword || !newPassword || !confirmPassword) {
-      setPasswordMsg({ type: 'error', text: 'All fields are required' });
+      toast.error('All fields are required');
       return;
     }
 
     if (newPassword.length < 6) {
-      setPasswordMsg({ type: 'error', text: 'New password must be at least 6 characters' });
+      toast.error('New password must be at least 6 characters');
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      setPasswordMsg({ type: 'error', text: 'New passwords do not match' });
+      toast.error('New passwords do not match');
       return;
     }
 
@@ -107,13 +102,12 @@ export default function ProfilePage() {
 
     try {
       await api.patch('/users/me/password', { currentPassword, newPassword });
-      setPasswordMsg({ type: 'success', text: 'Password changed successfully!' });
+      toast.success('Password changed successfully!');
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
-      setTimeout(() => setPasswordMsg({ type: '', text: '' }), 4000);
     } catch (err) {
-      setPasswordMsg({ type: 'error', text: err.response?.data?.error || 'Failed to change password' });
+      toast.error(err.response?.data?.error || 'Failed to change password');
     } finally {
       setChangingPassword(false);
     }
@@ -196,23 +190,6 @@ export default function ProfilePage() {
               enter it here so your synced tasks are matched to you.
             </p>
 
-            <AnimatePresence>
-              {profileMsg.text && (
-                <motion.div
-                  initial={{ opacity: 0, y: -4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0 }}
-                  className={`mb-4 px-4 py-2.5 rounded-lg text-sm border ${
-                    profileMsg.type === 'success'
-                      ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
-                      : 'bg-red-500/10 border-red-500/20 text-red-400'
-                  }`}
-                >
-                  {profileMsg.text}
-                </motion.div>
-              )}
-            </AnimatePresence>
-
             <Button
               type="submit"
               disabled={saving || (name.trim() === profile?.name && integrationEmail.trim() === (profile?.integrationEmail || ''))}
@@ -278,23 +255,6 @@ export default function ProfilePage() {
               placeholder="Re-enter new password"
               error={confirmPassword && newPassword !== confirmPassword ? 'Passwords do not match' : ''}
             />
-
-            <AnimatePresence>
-              {passwordMsg.text && (
-                <motion.div
-                  initial={{ opacity: 0, y: -4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0 }}
-                  className={`mb-4 px-4 py-2.5 rounded-lg text-sm border ${
-                    passwordMsg.type === 'success'
-                      ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
-                      : 'bg-red-500/10 border-red-500/20 text-red-400'
-                  }`}
-                >
-                  {passwordMsg.text}
-                </motion.div>
-              )}
-            </AnimatePresence>
 
             <Button
               type="submit"

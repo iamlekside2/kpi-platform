@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
+import { useToast } from '../../context/ToastContext';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
 
@@ -9,17 +10,16 @@ export default function RegisterPage() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const { register } = useAuth();
+  const toast = useToast();
   const navigate = useNavigate();
 
   async function handleSubmit(e) {
     e.preventDefault();
-    setError('');
 
     if (password.length < 6) {
-      setError('Password must be at least 6 characters');
+      toast.error('Password must be at least 6 characters');
       return;
     }
 
@@ -29,7 +29,7 @@ export default function RegisterPage() {
       await register(name, email, password);
       navigate('/onboarding');
     } catch (err) {
-      setError(err.response?.data?.error || 'Registration failed');
+      toast.error(err.response?.data?.error || 'Registration failed');
     } finally {
       setSubmitting(false);
     }
@@ -53,16 +53,6 @@ export default function RegisterPage() {
             <h1 className="text-2xl font-bold text-white mb-2">Create Account</h1>
             <p className="text-sm text-slate-400">Get started with KPI Platform</p>
           </div>
-
-          {error && (
-            <motion.div
-              initial={{ opacity: 0, y: -6 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="mb-4 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-lg text-sm text-red-400"
-            >
-              {error}
-            </motion.div>
-          )}
 
           <form onSubmit={handleSubmit} className="space-y-1">
             <Input
