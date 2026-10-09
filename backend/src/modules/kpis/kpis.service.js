@@ -35,7 +35,7 @@ async function createKpi({ orgId, name, unit, target, category, description, use
     where: { userId_orgId: { userId, orgId } },
   });
   if (!membership) throw new Error('Not a member of this organisation');
-  if (membership.role === 'member') throw new Error('Members cannot create KPIs');
+  if (membership.role === 'member' || membership.role === 'chairman') throw new Error('Members cannot create KPIs');
 
   return prisma.kPI.create({
     data: {
@@ -56,7 +56,7 @@ async function deleteKpi({ kpiId, userId }) {
   const membership = await prisma.orgMember.findUnique({
     where: { userId_orgId: { userId, orgId: kpi.orgId } },
   });
-  if (!membership || membership.role === 'member') {
+  if (!membership || membership.role === 'member' || membership.role === 'chairman') {
     throw new Error('Only admins and leads can delete KPIs');
   }
 

@@ -53,6 +53,9 @@ async function getOrgById(orgId, userId) {
 }
 
 async function inviteToOrg({ orgId, email, name, role = 'member', departmentId, inviterId }) {
+  if (!['admin', 'lead', 'member', 'md', 'chairman'].includes(role)) {
+    throw new Error('Invalid role');
+  }
   // Verify inviter is admin
   const inviterMembership = await prisma.orgMember.findUnique({
     where: { userId_orgId: { userId: inviterId, orgId } },
@@ -193,7 +196,7 @@ async function updateMemberRole(orgId, memberId, newRole, requesterId) {
   if (target.userId === requesterId) throw new Error('Cannot change your own role');
 
   // Valid roles
-  if (!['admin', 'lead', 'member'].includes(newRole)) {
+  if (!['admin', 'lead', 'member', 'md', 'chairman'].includes(newRole)) {
     throw new Error('Invalid role');
   }
 

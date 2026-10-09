@@ -7,9 +7,9 @@ import { LayoutDashboard, BarChart3, Users, ClipboardList, Settings, PanelLeftCl
 const allLinks = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/kpis', label: 'KPIs', icon: BarChart3 },
-  { to: '/staff', label: 'Staff', icon: Users, roles: ['admin', 'lead'] },
+  { to: '/staff', label: 'Staff', icon: Users, roles: ['admin', 'lead', 'md', 'chairman'] },
   { to: '/appraisals', label: 'Appraisals', icon: ClipboardList },
-  { to: '/audit-logs', label: 'Audit Log', icon: ScrollText, roles: ['admin', 'lead'] },
+  { to: '/audit-logs', label: 'Audit Log', icon: ScrollText, roles: ['admin', 'lead', 'md', 'chairman'] },
   { to: '/settings', label: 'Settings', icon: Settings },
 ];
 

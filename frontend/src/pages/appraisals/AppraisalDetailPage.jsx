@@ -102,25 +102,28 @@ export default function AppraisalDetailPage() {
   const role = orgRole || 'member';
   const isUnitHead = role === 'lead';
   const isAdmin = role === 'admin';
+  const isMd = role === 'md';
+  const isChairman = role === 'chairman';
+  const isExecutive = isMd || isChairman;
   const status = appraisal?.status;
 
   // What can each role SEE?
   const canSeeSection1 = true; // Everyone can see Section 1 (employee self-assessment)
   const canSeeDeptQuestions = true; // Everyone can see department questions
-  const canSeeSection2 = isUnitHead || isAdmin; // Only unit head & admin can see Section 2
-  const canSeeSection3 = isAdmin; // Only admin can see Section 3
+  const canSeeSection2 = isUnitHead || isAdmin || isExecutive;
+  const canSeeSection3 = isAdmin || isExecutive;
 
-  // What can each role EDIT?
+  // What can each role EDIT? (chairman edits nothing)
   const canEditEmployee = isEmployee && status === 'draft';
   const canEditUnitHead = isUnitHead && status === 'submitted';
   const canEditAdmin = isAdmin && (status === 'unit_reviewed' || status === 'admin_reviewed');
-  const canEditMd = isAdmin && status === 'admin_reviewed';
+  const canEditMd = (isAdmin || isMd) && status === 'admin_reviewed';
 
   // Set default active section based on role
   useEffect(() => {
     if (!appraisal || activeSection) return;
-    if (isAdmin) {
-      // Admin defaults to the section they need to act on
+    if (isAdmin || isMd) {
+      // Admin/MD default to the section they need to act on
       if (status === 'unit_reviewed') setActiveSection('section2');
       else if (status === 'admin_reviewed') setActiveSection('section3');
       else setActiveSection('section1');
@@ -129,7 +132,7 @@ export default function AppraisalDetailPage() {
     } else {
       setActiveSection('section1');
     }
-  }, [appraisal, isAdmin, isUnitHead, status, activeSection]);
+  }, [appraisal, isAdmin, isMd, isUnitHead, status, activeSection]);
 
   const selfRatingTotal = Object.values(selfRatings).reduce((sum, v) => sum + (Number(v) || 0), 0);
   const unitHeadTotal = Object.values(unitHeadScores).reduce((sum, v) => sum + (Number(v) || 0), 0);
@@ -141,7 +144,7 @@ export default function AppraisalDetailPage() {
   const SECTIONS = [
     ...(canSeeSection1 ? [{ key: 'section1', label: 'Self Assessment', icon: '📝' }] : []),
     ...(canSeeDeptQuestions && hasDeptQuestions ? [{ key: 'department', label: deptLabel, icon: appraisal?.department === 'sales' ? '💰' : '💻' }] : []),
-    ...((isUnitHead || isAdmin) && workItemData ? [{ key: 'ado_tasks', label: 'Azure DevOps Tasks', icon: '🔷' }] : []),
+    ...((isUnitHead || isAdmin || isExecutive) && workItemData ? [{ key: 'ado_tasks', label: 'Azure DevOps Tasks', icon: '🔷' }] : []),
     ...(canSeeSection2 ? [{ key: 'section2', label: 'Unit Head Review', icon: '👔' }] : []),
     ...(canSeeSection3 ? [{ key: 'section3', label: 'Management', icon: '🏢' }] : []),
   ];

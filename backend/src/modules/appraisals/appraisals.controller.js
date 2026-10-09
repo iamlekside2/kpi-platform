@@ -21,7 +21,7 @@ async function getFormStructure(req, res) {
 async function create(req, res) {
   try {
     const role = await getUserRole(req.user.userId, req.params.orgId);
-    if (!role || role === 'member') {
+    if (!role || role === 'member' || role === 'chairman') {
       return res.status(403).json({ error: 'Only admins and unit heads can create appraisals' });
     }
 
@@ -192,8 +192,8 @@ async function updateMd(req, res) {
     if (!appraisal) return res.status(404).json({ error: 'Appraisal not found' });
 
     const role = await getUserRole(req.user.userId, appraisal.orgId);
-    if (role !== 'admin') {
-      return res.status(403).json({ error: 'Only administrators can add MD comments' });
+    if (role !== 'admin' && role !== 'md') {
+      return res.status(403).json({ error: 'Only the MD or administrators can add MD comments' });
     }
     if (appraisal.status !== 'admin_reviewed') {
       return res.status(400).json({ error: 'Admin review must be completed first' });

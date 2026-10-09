@@ -9,6 +9,8 @@ import Input from '../../components/ui/Input';
 const ROLE_CONFIG = {
   admin: { label: 'HR / Admin', color: 'bg-accent-500/10 text-accent-400 border-accent-500/20', icon: '👑', description: 'Full access: manage staff, review all appraisals, admin & MD comments' },
   lead: { label: 'Unit Head', color: 'bg-amber-500/10 text-amber-400 border-amber-500/20', icon: '👔', description: 'Can review employee appraisals and provide unit head scoring' },
+  md: { label: 'MD', color: 'bg-purple-500/10 text-purple-400 border-purple-500/20', icon: '🎩', description: 'Sees everything; provides the final MD comments and scoring on appraisals' },
+  chairman: { label: 'Chairman', color: 'bg-rose-500/10 text-rose-400 border-rose-500/20', icon: '🏛️', description: 'View-only access to everything: dashboards, KPIs, appraisals, staff, audit log' },
   member: { label: 'Employee', color: 'bg-slate-500/10 text-slate-400 border-slate-500/20', icon: '👤', description: 'Can fill self-assessment and view own appraisals' },
 };
 
@@ -391,7 +393,7 @@ export default function StaffPage() {
                       </div>
                     ) : editingMember === m.id ? (
                       <div className="flex gap-1">
-                        {['admin', 'lead', 'member'].map((r) => (
+                        {['admin', 'lead', 'md', 'chairman', 'member'].map((r) => (
                           <button
                             key={r}
                             onClick={() => handleRoleChange(m.id, r)}
