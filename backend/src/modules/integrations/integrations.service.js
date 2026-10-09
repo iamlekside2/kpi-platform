@@ -247,14 +247,12 @@ async function syncMemberWorkItems({ integrationId, userId, periodFrom, periodTo
       continue;
     }
 
+    const { classifyState } = require('./adapters/ado.adapter');
     const items = data.items || [];
-    const completedItems = items.filter((i) => {
-      const s = i.state.toLowerCase();
-      return s === 'done' || s === 'closed' || s === 'resolved';
-    }).length;
+    const completedItems = items.filter((i) => classifyState(i.state) === 'done').length;
     const activeItems = items.filter((i) => {
-      const s = i.state.toLowerCase();
-      return s === 'active' || s === 'in progress';
+      const cls = classifyState(i.state);
+      return cls === 'open' || cls === 'blocked';
     }).length;
     const totalStoryPoints = items.reduce((sum, i) => sum + (i.storyPoints || 0), 0);
 

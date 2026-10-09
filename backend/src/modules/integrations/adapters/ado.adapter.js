@@ -6,6 +6,21 @@ const https = require('https');
  * `projects` can be a string[] or comma-separated string.
  */
 
+/**
+ * Classify a work-item state, tolerant of custom process templates.
+ * CalmGlobal boards use: New, In Sprint, In Progress,
+ * Confirmed Awaiting QA/Release, Pending Issues, Done, Done Deployed.
+ * Returns 'done' | 'blocked' | 'removed' | 'open'.
+ */
+function classifyState(rawState) {
+  const state = (rawState || '').toLowerCase().trim();
+  if (!state) return 'open';
+  if (state === 'removed') return 'removed';
+  if (/^(done|closed|resolved|completed)/.test(state)) return 'done';
+  if (state.includes('blocked') || state.includes('pending') || state.includes('on hold')) return 'blocked';
+  return 'open'; // new, active, in progress, in sprint, awaiting QA/release, ...
+}
+
 function parseProjects(project) {
   // Accept: string[], comma-separated string, or single project string
   if (Array.isArray(project)) return project.filter(Boolean);
@@ -70,14 +85,16 @@ async function fetchData({ orgUrl, accessToken, project }) {
       const detailData = await detailRes.json();
       for (const item of (detailData.value || [])) {
         const f = item.fields || {};
-        const state = (f['System.State'] || '').toLowerCase();
+        const cls = classifyState(f['System.State']);
+        if (cls === 'removed') continue;
+
         const type = (f['System.WorkItemType'] || '').toLowerCase();
-        const isDone = state === 'done' || state === 'closed' || state === 'resolved';
+        const isDone = cls === 'done';
         const createdRecently = f['System.CreatedDate'] && new Date(f['System.CreatedDate']) >= thirtyDaysAgo;
 
         if (isDone) done++;
-        else if (state === 'active' || state === 'in progress') inProgress++;
-        else if (state === 'blocked') blocked++;
+        else if (cls === 'blocked') blocked++;
+        else inProgress++;
 
         if (createdRecently) itemsCreated++;
 
@@ -95,7 +112,7 @@ async function fetchData({ orgUrl, accessToken, project }) {
 
     // Open bugs is a point-in-time count — query it regardless of change date
     const openBugsQuery = {
-      query: `SELECT [System.Id] FROM workitems WHERE [System.TeamProject] = '${proj}' AND [System.WorkItemType] = 'Bug' AND [System.State] NOT IN ('Done', 'Closed', 'Resolved', 'Removed')`,
+      query: `SELECT [System.Id] FROM workitems WHERE [System.TeamProject] = '${proj}' AND [System.WorkItemType] = 'Bug' AND [System.State] NOT IN ('Done', 'Done Deployed', 'Closed', 'Resolved', 'Completed', 'Removed')`,
     };
     const bugRes = await fetch(url, {
       method: 'POST',
@@ -261,4 +278,4 @@ async function fetchMemberWorkItems({ orgUrl, accessToken, project, fromDate, to
   return memberMap;
 }
 
-module.exports = { fetchData, fetchMemberWorkItems, testConnection };
+module.exports = { fetchData, fetchMemberWorkItems, testConnection, classifyState };
