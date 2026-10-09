@@ -93,4 +93,128 @@ async function getOrgSummary(orgId) {
   };
 }
 
-module.exports = { getOrgSummary };
+// ── Team summary (unit head dashboard) ───────────────────────
+// Scope: the requester's department (whole org if they have none).
+async function getTeamSummary(orgId, userId) {
+  const requester = await prisma.orgMember.findUnique({
+    where: { userId_orgId: { userId, orgId } },
+    include: { department: true },
+  });
+  if (!requester) throw new Error('Not a member');
+  if (!['lead', 'admin'].includes(requester.role)) throw new Error('Forbidden');
+
+  const memberWhere = requester.departmentId
+    ? { orgId, departmentId: requester.departmentId }
+    : { orgId };
+  const team = await prisma.orgMember.findMany({
+    where: memberWhere,
+    include: {
+      user: { select: { id: true, name: true, email: true } },
+      department: { select: { name: true } },
+    },
+  });
+  const teamUserIds = team.map((m) => m.userId);
+
+  const [appraisals, workItems] = await Promise.all([
+    prisma.appraisal.findMany({
+      where: { orgId, employeeId: { in: teamUserIds } },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true, employeeId: true, status: true, grade: true, finalScore: true, updatedAt: true },
+    }),
+    prisma.memberWorkItems.findMany({
+      where: { orgId, userId: { in: teamUserIds } },
+      orderBy: { syncedAt: 'desc' },
+    }),
+  ]);
+
+  const latestAppraisal = {};
+  for (const a of appraisals) if (!latestAppraisal[a.employeeId]) latestAppraisal[a.employeeId] = a;
+  const latestWork = {};
+  for (const w of workItems) if (!latestWork[w.userId]) latestWork[w.userId] = w;
+
+  const members = team.map((m) => ({
+    userId: m.userId,
+    name: m.user.name,
+    email: m.user.email,
+    role: m.role,
+    department: m.department?.name || null,
+    appraisal: latestAppraisal[m.userId] || null,
+    workItems: latestWork[m.userId]
+      ? {
+          total: latestWork[m.userId].totalItems,
+          completed: latestWork[m.userId].completedItems,
+          active: latestWork[m.userId].activeItems,
+          storyPoints: latestWork[m.userId].totalStoryPoints || 0,
+          syncedAt: latestWork[m.userId].syncedAt,
+        }
+      : null,
+  }));
+
+  const pendingReviews = members
+    .filter((m) => m.appraisal && m.appraisal.status === 'submitted')
+    .map((m) => ({ id: m.appraisal.id, employeeName: m.name, updatedAt: m.appraisal.updatedAt }));
+
+  return {
+    department: requester.department?.name || 'All departments',
+    teamSize: members.length,
+    pendingReviews,
+    members,
+  };
+}
+
+// ── Staff performance (executive dashboard) ──────────────────
+async function getStaffPerformance(orgId, userId) {
+  const requester = await prisma.orgMember.findUnique({
+    where: { userId_orgId: { userId, orgId } },
+  });
+  if (!requester) throw new Error('Not a member');
+  if (!['admin', 'md', 'chairman'].includes(requester.role)) throw new Error('Forbidden');
+
+  const team = await prisma.orgMember.findMany({
+    where: { orgId },
+    include: {
+      user: { select: { id: true, name: true, email: true } },
+      department: { select: { name: true } },
+    },
+  });
+  const userIds = team.map((m) => m.userId);
+
+  const [appraisals, workItems] = await Promise.all([
+    prisma.appraisal.findMany({
+      where: { orgId },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true, employeeId: true, status: true, grade: true, finalScore: true, updatedAt: true },
+    }),
+    prisma.memberWorkItems.findMany({
+      where: { orgId, userId: { in: userIds } },
+      orderBy: { syncedAt: 'desc' },
+    }),
+  ]);
+
+  const latestAppraisal = {};
+  for (const a of appraisals) if (!latestAppraisal[a.employeeId]) latestAppraisal[a.employeeId] = a;
+  const latestWork = {};
+  for (const w of workItems) if (!latestWork[w.userId]) latestWork[w.userId] = w;
+
+  const members = team.map((m) => ({
+    userId: m.userId,
+    name: m.user.name,
+    email: m.user.email,
+    role: m.role,
+    department: m.department?.name || null,
+    appraisal: latestAppraisal[m.userId] || null,
+    workItems: latestWork[m.userId]
+      ? {
+          completed: latestWork[m.userId].completedItems,
+          active: latestWork[m.userId].activeItems,
+          storyPoints: latestWork[m.userId].totalStoryPoints || 0,
+        }
+      : null,
+  }));
+
+  const awaitingMd = appraisals.filter((a) => a.status === 'admin_reviewed').length;
+
+  return { staffCount: members.length, awaitingMd, members };
+}
+
+module.exports = { getOrgSummary, getTeamSummary, getStaffPerformance };

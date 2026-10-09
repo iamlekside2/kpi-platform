@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend,
@@ -8,79 +7,23 @@ import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
 import PageWrapper from '../../components/layout/PageWrapper';
 import Button from '../../components/ui/Button';
+import {
+  StatCard, ChartCard, ChartTooltip,
+  GRADE_COLORS, STATUS_LABELS, STATUS_COLORS, getAccentColor, getAccentColor400,
+} from './shared';
+import UnitHeadDashboard from './UnitHeadDashboard';
+import ExecutiveDashboard from './ExecutiveDashboard';
 
-// Grade colours
-const GRADE_COLORS = { A: '#10b981', B: '#3b82f6', C: '#f59e0b', D: '#ef4444' };
-
-// Status labels
-const STATUS_LABELS = {
-  draft: 'Draft',
-  submitted: 'Submitted',
-  unit_reviewed: 'Unit Reviewed',
-  admin_reviewed: 'Admin Reviewed',
-  completed: 'Completed',
-};
-const STATUS_COLORS = ['#64748b', '#818cf8', '#f59e0b', '#3b82f6', '#10b981'];
-
-// Get accent colour from CSS vars for charts
-function getAccentColor() {
-  const root = document.documentElement;
-  return root.style.getPropertyValue('--accent-500').trim() || '#6366f1';
-}
-
-function getAccentColor400() {
-  const root = document.documentElement;
-  return root.style.getPropertyValue('--accent-400').trim() || '#818cf8';
-}
-
-// Custom tooltip component
-function ChartTooltip({ active, payload, label }) {
-  if (!active || !payload?.length) return null;
-  return (
-    <div className="bg-surface-900 border border-white/10 rounded-lg px-3 py-2 shadow-xl text-xs">
-      <p className="text-slate-300 font-medium mb-1">{label}</p>
-      {payload.map((entry, i) => (
-        <p key={i} style={{ color: entry.color }} className="font-semibold">
-          {entry.name}: {typeof entry.value === 'number' ? entry.value.toFixed(1) : entry.value}
-          {entry.name?.includes('%') || entry.dataKey?.includes('Achievement') ? '%' : ''}
-        </p>
-      ))}
-    </div>
-  );
-}
-
-// Stat card component
-function StatCard({ label, value, sub, delay = 0 }) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay }}
-      className="bg-surface-900/60 border border-white/[0.06] rounded-xl px-5 py-4 flex flex-col"
-    >
-      <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">{label}</span>
-      <span className="text-2xl font-bold text-white tabular-nums mt-1">{value}</span>
-      {sub && <span className="text-xs text-slate-400 mt-0.5">{sub}</span>}
-    </motion.div>
-  );
-}
-
-// Chart card wrapper
-function ChartCard({ title, children, delay = 0, className = '' }) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay }}
-      className={`bg-surface-900/60 border border-white/[0.06] rounded-2xl p-6 ${className}`}
-    >
-      <h3 className="text-sm font-semibold text-white mb-4">{title}</h3>
-      {children}
-    </motion.div>
-  );
-}
-
+// Role-aware entry point: unit heads get a team view, MD/chairman the
+// executive overview, everyone else (HR/admin + employees) the org dashboard.
 export default function DashboardPage() {
+  const { orgRole } = useAuth();
+  if (orgRole === 'lead') return <UnitHeadDashboard />;
+  if (orgRole === 'md' || orgRole === 'chairman') return <ExecutiveDashboard />;
+  return <OrgDashboard />;
+}
+
+function OrgDashboard() {
   const { activeOrg } = useAuth();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
