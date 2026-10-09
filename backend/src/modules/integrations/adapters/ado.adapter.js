@@ -26,10 +26,21 @@ async function fetchData({ orgUrl, accessToken, project }) {
   }
 
   let done = 0, inProgress = 0, blocked = 0;
+  let itemsCreated = 0, bugsCreated = 0, bugsFixed = 0, openBugs = 0;
+  let storyPointsDone = 0;
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+  const DETAIL_FIELDS = [
+    'System.State',
+    'System.WorkItemType',
+    'System.CreatedDate',
+    'Microsoft.VSTS.Scheduling.StoryPoints',
+    'Microsoft.VSTS.Scheduling.Effort',
+  ].join(',');
 
   for (const proj of projects) {
     const wiqlQuery = {
-      query: `SELECT [System.Id], [System.State], [System.WorkItemType] FROM workitems WHERE [System.TeamProject] = '${proj}' AND [System.ChangedDate] >= @today - 30`,
+      query: `SELECT [System.Id] FROM workitems WHERE [System.TeamProject] = '${proj}' AND [System.ChangedDate] >= @today - 30`,
     };
 
     const url = `${orgUrl}/${encodeURIComponent(proj)}/_apis/wit/wiql?api-version=7.0`;
@@ -46,33 +57,74 @@ async function fetchData({ orgUrl, accessToken, project }) {
 
     const data = await response.json();
     const workItemIds = (data.workItems || []).map((wi) => wi.id).slice(0, 200);
-    if (workItemIds.length === 0) continue;
 
-    const idsParam = workItemIds.join(',');
-    const detailUrl = `${orgUrl}/_apis/wit/workitems?ids=${idsParam}&fields=System.State&api-version=7.0`;
+    if (workItemIds.length > 0) {
+      const idsParam = workItemIds.join(',');
+      const detailUrl = `${orgUrl}/_apis/wit/workitems?ids=${idsParam}&fields=${DETAIL_FIELDS}&api-version=7.0`;
 
-    const detailRes = await fetch(detailUrl, {
-      headers: { Authorization: `Basic ${auth}` },
+      const detailRes = await fetch(detailUrl, {
+        headers: { Authorization: `Basic ${auth}` },
+      });
+      if (!detailRes.ok) continue;
+
+      const detailData = await detailRes.json();
+      for (const item of (detailData.value || [])) {
+        const f = item.fields || {};
+        const state = (f['System.State'] || '').toLowerCase();
+        const type = (f['System.WorkItemType'] || '').toLowerCase();
+        const isDone = state === 'done' || state === 'closed' || state === 'resolved';
+        const createdRecently = f['System.CreatedDate'] && new Date(f['System.CreatedDate']) >= thirtyDaysAgo;
+
+        if (isDone) done++;
+        else if (state === 'active' || state === 'in progress') inProgress++;
+        else if (state === 'blocked') blocked++;
+
+        if (createdRecently) itemsCreated++;
+
+        if (type === 'bug') {
+          if (createdRecently) bugsCreated++;
+          if (isDone) bugsFixed++;
+        }
+
+        if (isDone) {
+          const points = f['Microsoft.VSTS.Scheduling.StoryPoints'] || f['Microsoft.VSTS.Scheduling.Effort'] || 0;
+          storyPointsDone += Number(points) || 0;
+        }
+      }
+    }
+
+    // Open bugs is a point-in-time count — query it regardless of change date
+    const openBugsQuery = {
+      query: `SELECT [System.Id] FROM workitems WHERE [System.TeamProject] = '${proj}' AND [System.WorkItemType] = 'Bug' AND [System.State] NOT IN ('Done', 'Closed', 'Resolved', 'Removed')`,
+    };
+    const bugRes = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Basic ${auth}`,
+      },
+      body: JSON.stringify(openBugsQuery),
     });
-    if (!detailRes.ok) continue;
-
-    const detailData = await detailRes.json();
-    for (const item of (detailData.value || [])) {
-      const state = (item.fields?.['System.State'] || '').toLowerCase();
-      if (state === 'done' || state === 'closed' || state === 'resolved') done++;
-      else if (state === 'active' || state === 'in progress') inProgress++;
-      else if (state === 'blocked') blocked++;
+    if (bugRes.ok) {
+      const bugData = await bugRes.json();
+      openBugs += (bugData.workItems || []).length;
     }
   }
 
-  return normalise({ done, inProgress, blocked });
+  return normalise({ done, inProgress, blocked, itemsCreated, bugsCreated, bugsFixed, openBugs, storyPointsDone });
 }
 
-function normalise({ done, inProgress, blocked }) {
+// All counts cover the last 30 days, except Open Bugs (current snapshot).
+function normalise({ done, inProgress, blocked, itemsCreated, bugsCreated, bugsFixed, openBugs, storyPointsDone }) {
   return [
-    { kpiName: 'Tasks Completed', value: done },
-    { kpiName: 'Open Items', value: inProgress },
-    { kpiName: 'Blocked Count', value: blocked },
+    { kpiName: 'Tasks Completed', value: done, unit: 'items' },
+    { kpiName: 'Open Items', value: inProgress, unit: 'items' },
+    { kpiName: 'Blocked Count', value: blocked, unit: 'items' },
+    { kpiName: 'Items Created', value: itemsCreated, unit: 'items' },
+    { kpiName: 'Bugs Created', value: bugsCreated, unit: 'bugs' },
+    { kpiName: 'Bugs Fixed', value: bugsFixed, unit: 'bugs' },
+    { kpiName: 'Open Bugs', value: openBugs, unit: 'bugs' },
+    { kpiName: 'Story Points Completed', value: storyPointsDone, unit: 'points' },
   ];
 }
 

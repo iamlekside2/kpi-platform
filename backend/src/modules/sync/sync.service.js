@@ -93,6 +93,19 @@ async function syncIntegrationDirect(integration) {
       if (kpi) {
         await prisma.kPI.update({ where: { id: kpi.id }, data: { value: item.value } });
         rowsUpdated++;
+      } else {
+        // Auto-create KPIs for metrics the integration reports
+        await prisma.kPI.create({
+          data: {
+            name: item.kpiName,
+            unit: item.unit || 'count',
+            value: item.value,
+            category: 'Delivery',
+            description: `Auto-synced from ${integration.tool.toUpperCase()} (last 30 days)`,
+            orgId: integration.orgId,
+          },
+        });
+        rowsUpdated++;
       }
     }
   }
