@@ -6,7 +6,7 @@ import { useAuth } from '../../context/AuthContext';
 import PageWrapper from '../../components/layout/PageWrapper';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
-import { Palette, Link2, BellRing, ClipboardList, Sun, Moon } from 'lucide-react';
+import { Palette, Link2, BellRing, ClipboardList, Sun, Moon, Lock } from 'lucide-react';
 
 const TOOLS = [
   { key: 'ado', name: 'Azure DevOps', icon: '🔷', fields: ['orgUrl', 'accessToken', 'project'] },
@@ -14,8 +14,8 @@ const TOOLS = [
   { key: 'asana', name: 'Asana', icon: '🟠', fields: ['accessToken', 'projectId'] },
 ];
 
-const TABS = [
-  { key: 'appearance', label: 'Appearance', icon: Palette },
+// Integrations, alerts and sync history are org administration — admin only.
+const ADMIN_TABS = [
   { key: 'integrations', label: 'Integrations', icon: Link2 },
   { key: 'alerts', label: 'Alerts', icon: BellRing },
   { key: 'logs', label: 'Sync History', icon: ClipboardList },
@@ -38,7 +38,22 @@ export default function SettingsPage() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
+  // Change-password form
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [changingPassword, setChangingPassword] = useState(false);
+  const [passwordMsg, setPasswordMsg] = useState({ type: '', text: '' });
+
+  const TABS = [
+    { key: 'appearance', label: 'Appearance', icon: Palette },
+    ...(isAdmin ? ADMIN_TABS : []),
+    { key: 'security', label: 'Security', icon: Lock },
+  ];
+
   useEffect(() => {
+    // Org integrations/alerts/logs are admin-only — don't fetch them for members
+    if (!isAdmin) return;
     async function load() {
       const { data: orgs } = await api.get('/orgs');
       if (orgs.length > 0) {
@@ -54,7 +69,39 @@ export default function SettingsPage() {
       }
     }
     load();
-  }, []);
+  }, [isAdmin]);
+
+  async function handleChangePassword(e) {
+    e.preventDefault();
+    setPasswordMsg({ type: '', text: '' });
+
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      setPasswordMsg({ type: 'error', text: 'All fields are required' });
+      return;
+    }
+    if (newPassword.length < 6) {
+      setPasswordMsg({ type: 'error', text: 'New password must be at least 6 characters' });
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordMsg({ type: 'error', text: 'New passwords do not match' });
+      return;
+    }
+
+    setChangingPassword(true);
+    try {
+      await api.patch('/users/me/password', { currentPassword, newPassword });
+      setPasswordMsg({ type: 'success', text: 'Password changed successfully!' });
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      setTimeout(() => setPasswordMsg({ type: '', text: '' }), 4000);
+    } catch (err) {
+      setPasswordMsg({ type: 'error', text: err.response?.data?.error || 'Failed to change password' });
+    } finally {
+      setChangingPassword(false);
+    }
+  }
 
   async function handleConnect(e) {
     e.preventDefault();
@@ -234,6 +281,7 @@ export default function SettingsPage() {
               </motion.button>
             </div>
 
+            {isAdmin && (<>
             <h3 className="text-lg font-semibold text-white mb-2">Brand Colour</h3>
             <p className="text-sm text-slate-400 mb-6">
               Choose an accent colour for your organisation. This changes buttons, links, and highlights across the entire app.
@@ -286,14 +334,71 @@ export default function SettingsPage() {
               </div>
             </div>
 
-            {!isAdmin && (
-              <p className="mt-4 text-xs text-slate-500">Only administrators can change the brand colour.</p>
-            )}
+            </>)}
+          </motion.div>
+        )}
+
+        {/* Security Tab — available to every role */}
+        {tab === 'security' && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+            <div className="bg-surface-900/60 border border-white/[0.06] rounded-2xl p-6 max-w-lg">
+              <h3 className="text-lg font-semibold text-white mb-1">Change Password</h3>
+              <p className="text-sm text-slate-400 mb-5">Update your password to keep your account secure.</p>
+
+              <form onSubmit={handleChangePassword}>
+                <Input
+                  label="Current Password"
+                  type="password"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  placeholder="Enter current password"
+                />
+                <Input
+                  label="New Password"
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="At least 6 characters"
+                />
+                <Input
+                  label="Confirm New Password"
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Re-enter new password"
+                  error={confirmPassword && newPassword !== confirmPassword ? 'Passwords do not match' : ''}
+                />
+
+                <AnimatePresence>
+                  {passwordMsg.text && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0 }}
+                      className={`mb-4 px-4 py-2.5 rounded-lg text-sm border ${
+                        passwordMsg.type === 'success'
+                          ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+                          : 'bg-red-500/10 border-red-500/20 text-red-400'
+                      }`}
+                    >
+                      {passwordMsg.text}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                <Button
+                  type="submit"
+                  disabled={changingPassword || !currentPassword || !newPassword || !confirmPassword}
+                >
+                  {changingPassword ? 'Changing...' : 'Change Password'}
+                </Button>
+              </form>
+            </div>
           </motion.div>
         )}
 
         {/* Integrations Tab */}
-        {tab === 'integrations' && (
+        {tab === 'integrations' && isAdmin && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
             <div className="space-y-6">
               {TOOLS.map((tool, i) => {
@@ -429,7 +534,7 @@ export default function SettingsPage() {
         )}
 
         {/* Alerts Tab */}
-        {tab === 'alerts' && (
+        {tab === 'alerts' && isAdmin && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
             <p className="text-sm text-slate-400 mb-4">Enable alerts to get notified when KPIs cross a threshold.</p>
             <div className="space-y-2">
@@ -477,7 +582,7 @@ export default function SettingsPage() {
         )}
 
         {/* Sync Logs Tab */}
-        {tab === 'logs' && (
+        {tab === 'logs' && isAdmin && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
             {syncLogs.length === 0 ? (
               <div className="flex flex-col items-center py-16 text-center">
