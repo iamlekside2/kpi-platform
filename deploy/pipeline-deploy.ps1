@@ -31,10 +31,13 @@ robocopy "$Src\frontend\dist" "$Live\frontend\dist" /MIR /NFL /NDL /NJH /NJS
 if ($LASTEXITCODE -ge 8) { throw "robocopy frontend failed with code $LASTEXITCODE" }
 Copy-Item "$Src\deploy\frontend.web.config" "$Live\frontend\dist\web.config" -Force
 
-Write-Host '==> Running database migrations'
+Write-Host '==> Syncing database schema'
 Push-Location "$Live\backend"
-npx prisma migrate deploy
-if ($LASTEXITCODE -ne 0) { Pop-Location; throw 'prisma migrate deploy failed' }
+# The repo's migration history is incomplete (schema was evolved with db push),
+# so deploy with db push: it diffs the live DB against schema.prisma and fails
+# loudly instead of applying destructive changes.
+npx prisma db push --skip-generate
+if ($LASTEXITCODE -ne 0) { Pop-Location; throw 'prisma db push failed' }
 Pop-Location
 
 Write-Host '==> Starting backend app pool'
