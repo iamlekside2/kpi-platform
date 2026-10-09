@@ -6,6 +6,14 @@ const { sendWelcomeEmail, sendPasswordResetEmail, sendPasswordChangedEmail } = r
 
 const SALT_ROUNDS = 12;
 
+// Public mail providers — many unrelated people legitimately share these
+// domains, so the one-account-per-company-domain rule must not apply to them.
+const PUBLIC_EMAIL_DOMAINS = new Set([
+  'gmail.com', 'googlemail.com', 'yahoo.com', 'ymail.com', 'outlook.com',
+  'hotmail.com', 'live.com', 'msn.com', 'icloud.com', 'me.com', 'aol.com',
+  'proton.me', 'protonmail.com', 'mail.com', 'gmx.com', 'zoho.com',
+]);
+
 async function hashPassword(password) {
   return bcrypt.hash(password, SALT_ROUNDS);
 }
@@ -42,6 +50,20 @@ async function registerUser({ email, name, password }) {
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) {
     throw new Error('Email already registered');
+  }
+
+  // One self-registration per company domain: once someone from a company
+  // (e.g. hr@acme.com) has registered, colleagues must be added by their
+  // admin from the Staff page instead of registering their own account.
+  const domain = email.split('@')[1]?.toLowerCase();
+  if (domain && !PUBLIC_EMAIL_DOMAINS.has(domain)) {
+    const sameDomainUser = await prisma.user.findFirst({
+      where: { email: { endsWith: `@${domain}`, mode: 'insensitive' } },
+      select: { id: true },
+    });
+    if (sameDomainUser) {
+      throw new Error('Company already registered');
+    }
   }
 
   const hashedPassword = await hashPassword(password);

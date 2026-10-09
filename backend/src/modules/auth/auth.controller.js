@@ -35,6 +35,11 @@ async function register(req, res) {
     if (err.message === 'Email already registered') {
       return res.status(409).json({ error: err.message });
     }
+    if (err.message === 'Company already registered') {
+      return res.status(409).json({
+        error: 'Your company is already on KPI Platform. Ask your administrator to add you from the Staff page.',
+      });
+    }
     console.error('Register error:', err);
     return res.status(500).json({ error: 'Internal server error' });
   }
