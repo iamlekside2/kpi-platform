@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
+import { useToast } from '../../context/ToastContext';
 import PageWrapper from '../../components/layout/PageWrapper';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
@@ -26,6 +27,7 @@ function getDeptColor(slug) {
 
 export default function StaffPage() {
   const { activeOrg, orgRole, loadOrgRole } = useAuth();
+  const toast = useToast();
   const [members, setMembers] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -109,8 +111,9 @@ export default function StaffPage() {
       setMembers(members.map((m) => m.id === memberId ? { ...m, role: newRole } : m));
       setEditingMember(null);
       loadOrgRole();
+      toast.success('Role updated');
     } catch (err) {
-      alert(err.response?.data?.error || 'Failed to update role');
+      toast.error(err.response?.data?.error || 'Failed to update role');
     }
   }
 
@@ -119,18 +122,26 @@ export default function StaffPage() {
       const { data } = await api.patch(`/orgs/${activeOrg.id}/members/${memberId}/department`, { departmentId: departmentId || null });
       setMembers(members.map((m) => m.id === memberId ? { ...m, department: data.department } : m));
       setEditingDept(null);
+      toast.success('Department updated');
     } catch (err) {
-      alert(err.response?.data?.error || 'Failed to update department');
+      toast.error(err.response?.data?.error || 'Failed to update department');
     }
   }
 
   async function handleRemove(memberId, name) {
-    if (!confirm(`Remove ${name} from the organization?`)) return;
+    const ok = await toast.confirm({
+      title: `Remove ${name}?`,
+      message: 'They will lose access to this organisation. Their past appraisals are kept.',
+      confirmLabel: 'Remove',
+      danger: true,
+    });
+    if (!ok) return;
     try {
       await api.delete(`/orgs/${activeOrg.id}/members/${memberId}`);
       setMembers(members.filter((m) => m.id !== memberId));
+      toast.success(`${name} removed from the organisation`);
     } catch (err) {
-      alert(err.response?.data?.error || 'Failed to remove member');
+      toast.error(err.response?.data?.error || 'Failed to remove member');
     }
   }
 

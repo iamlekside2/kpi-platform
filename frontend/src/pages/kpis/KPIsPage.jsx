@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
+import { useToast } from '../../context/ToastContext';
 import api from '../../services/api';
 import PageWrapper from '../../components/layout/PageWrapper';
 import KPIGrid from '../../components/kpi/KPIGrid';
@@ -9,6 +10,7 @@ import Input from '../../components/ui/Input';
 
 export default function KPIsPage() {
   const { orgRole } = useAuth();
+  const toast = useToast();
   const canManageKpis = orgRole === 'admin' || orgRole === 'lead';
   const [orgs, setOrgs] = useState([]);
   const [activeOrg, setActiveOrg] = useState(null);
@@ -43,12 +45,19 @@ export default function KPIsPage() {
   }
 
   async function handleKpiDelete(kpiId) {
-    if (!window.confirm('Delete this KPI?')) return;
+    const ok = await toast.confirm({
+      title: 'Delete this KPI?',
+      message: 'Its value history and alert settings will be removed.',
+      confirmLabel: 'Delete',
+      danger: true,
+    });
+    if (!ok) return;
     try {
       await api.delete(`/kpis/${kpiId}`);
       setKpis((prev) => prev.filter((k) => k.id !== kpiId));
+      toast.success('KPI deleted');
     } catch (err) {
-      console.error('Failed to delete KPI:', err);
+      toast.error(err.response?.data?.error || 'Failed to delete KPI');
     }
   }
 

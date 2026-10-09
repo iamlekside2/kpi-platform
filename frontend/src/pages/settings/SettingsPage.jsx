@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import api from '../../services/api';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
+import { useToast } from '../../context/ToastContext';
 import PageWrapper from '../../components/layout/PageWrapper';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
@@ -24,6 +25,7 @@ const ADMIN_TABS = [
 export default function SettingsPage() {
   const { themeColor, updateThemeColor, COLOR_MAP, mode, toggleMode } = useTheme();
   const { orgRole } = useAuth();
+  const toast = useToast();
   const isAdmin = orgRole === 'admin';
   const [tab, setTab] = useState('appearance');
   const [orgId, setOrgId] = useState(null);
@@ -144,12 +146,19 @@ export default function SettingsPage() {
   }
 
   async function handleDeleteIntegration(id) {
-    if (!window.confirm('Remove this integration?')) return;
+    const ok = await toast.confirm({
+      title: 'Remove this integration?',
+      message: 'Scheduled syncs for it will stop. Synced KPI values are kept.',
+      confirmLabel: 'Disconnect',
+      danger: true,
+    });
+    if (!ok) return;
     try {
       await api.delete(`/integrations/${id}`);
       setIntegrations((prev) => prev.filter((i) => i.id !== id));
+      toast.success('Integration disconnected');
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to delete');
+      toast.error(err.response?.data?.error || 'Failed to delete');
     }
   }
 
