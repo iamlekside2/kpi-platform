@@ -35,8 +35,10 @@ app.use(cors({
     // Allow requests with no origin (mobile apps, curl, server-to-server)
     if (!origin || allowed.some(url => origin.startsWith(url.trim()))) {
       callback(null, true);
+    } else if (process.env.NODE_ENV !== 'production') {
+      callback(null, true); // Permissive in development only
     } else {
-      callback(null, true); // Be permissive for now during development
+      callback(new Error('Not allowed by CORS'));
     }
   },
   credentials: true,
