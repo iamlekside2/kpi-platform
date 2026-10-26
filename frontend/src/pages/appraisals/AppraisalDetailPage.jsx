@@ -8,7 +8,7 @@ import PageWrapper from '../../components/layout/PageWrapper';
 import Button from '../../components/ui/Button';
 import {
   FileText, DollarSign, Code2, Boxes, UsersRound, Building2,
-  Eye, Info, Target, BarChart3,
+  Eye, Info, Target, BarChart3, Trophy,
 } from 'lucide-react';
 
 const STATUS_LABELS = {
@@ -25,6 +25,16 @@ const STATUS_COLORS = {
   unit_reviewed: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
   admin_reviewed: 'bg-accent-500/10 text-accent-400 border-accent-500/20',
   completed: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+};
+
+// Same grade colours the dashboards use, so a grade reads the same everywhere
+const GRADE_COLORS = { A: '#10b981', B: '#3b82f6', C: '#f59e0b', D: '#ef4444' };
+
+const GRADE_MEANING = {
+  A: 'Outstanding performance',
+  B: 'Exceeds expectations',
+  C: 'Meets expectations',
+  D: 'Below expectations',
 };
 
 const ROLE_LABELS = {
@@ -147,6 +157,10 @@ export default function AppraisalDetailPage() {
   const canSeeDeptQuestions = true; // Everyone can see department questions
   const canSeeSection2 = isUnitHead || isAdmin || isExecutive;
   const canSeeSection3 = isAdmin || isExecutive;
+  // Reviewers' working scores stay private while the appraisal is open, but
+  // once it is final the employee is shown their own result rather than
+  // having to download the PDF to learn their grade.
+  const canSeeOwnResult = isEmployee && status === 'completed';
 
   // What can each role EDIT? (chairman edits nothing)
   const canEditEmployee = isEmployee && status === 'draft';
@@ -168,6 +182,8 @@ export default function AppraisalDetailPage() {
       else setActiveSection('section1');
     } else if (isUnitHead) {
       setActiveSection(status === 'submitted' ? 'section2' : 'section1');
+    } else if (isEmployee && status === 'completed') {
+      setActiveSection('result');
     } else {
       setActiveSection('section1');
     }
@@ -186,6 +202,7 @@ export default function AppraisalDetailPage() {
     ...((isUnitHead || isAdmin || isExecutive) ? [{ key: 'ado_tasks', label: 'Azure DevOps Tasks', Icon: Boxes }] : []),
     ...(canSeeSection2 ? [{ key: 'section2', label: 'Unit Head Review', Icon: UsersRound }] : []),
     ...(canSeeSection3 ? [{ key: 'section3', label: 'Management', Icon: Building2 }] : []),
+    ...(canSeeOwnResult ? [{ key: 'result', label: 'My Result', Icon: Trophy }] : []),
   ];
 
   async function handleSaveDraft() {
@@ -368,6 +385,80 @@ export default function AppraisalDetailPage() {
         </div>
 
         {/* ── SECTION 1: Self Assessment ── */}
+        {/* ── The employee's own result, once it is final ── */}
+        {activeSection === 'result' && canSeeOwnResult && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+            <div className="bg-surface-900/60 border border-white/[0.06] rounded-2xl p-6">
+              <div className="flex items-center gap-5 flex-wrap">
+                <div
+                  className="w-20 h-20 rounded-2xl flex items-center justify-center text-4xl font-bold shrink-0"
+                  style={{
+                    color: GRADE_COLORS[appraisal.grade] || '#fff',
+                    backgroundColor: `${GRADE_COLORS[appraisal.grade] || '#64748b'}1a`,
+                    border: `2px solid ${GRADE_COLORS[appraisal.grade] || '#64748b'}33`,
+                  }}
+                >
+                  {appraisal.grade || '--'}
+                </div>
+                <div>
+                  <div className="text-3xl font-bold text-white tabular-nums">
+                    {appraisal.finalScore?.toFixed(1) ?? '--'}
+                    <span className="text-base text-slate-500 font-normal"> / 100</span>
+                  </div>
+                  <p className="text-sm text-slate-400 mt-1">
+                    {GRADE_MEANING[appraisal.grade] || 'Final result'} · {new Date(appraisal.reviewPeriodFrom).toLocaleDateString()} to {new Date(appraisal.reviewPeriodTo).toLocaleDateString()}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-surface-900/60 border border-white/[0.06] rounded-2xl p-6">
+              <h3 className="text-sm font-bold text-white mb-1">How this was calculated</h3>
+              <p className="text-xs text-slate-500 mb-4">Self rating 30% · Unit head 50% · MD 20%</p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="p-4 bg-slate-800/30 rounded-xl border border-white/[0.04] text-center">
+                  <div className="text-[10px] text-accent-400 uppercase tracking-wider font-bold mb-1">Your rating (30%)</div>
+                  <div className="text-2xl font-bold text-white tabular-nums">{selfRatingTotal}</div>
+                  <div className="text-[10px] text-slate-500">/ {formStructure.scoring?.selfRatingMax ?? 140}</div>
+                </div>
+                <div className="p-4 bg-slate-800/30 rounded-xl border border-white/[0.04] text-center">
+                  <div className="text-[10px] text-emerald-400 uppercase tracking-wider font-bold mb-1">Unit head (50%)</div>
+                  <div className="text-2xl font-bold text-white tabular-nums">{unitHeadTotal}</div>
+                  <div className="text-[10px] text-slate-500">/ {formStructure.scoring?.unitHeadMax ?? 96}</div>
+                </div>
+                <div className="p-4 bg-slate-800/30 rounded-xl border border-white/[0.04] text-center">
+                  <div className="text-[10px] text-amber-400 uppercase tracking-wider font-bold mb-1">MD (20%)</div>
+                  <div className="text-2xl font-bold text-white tabular-nums">{appraisal.mdScore || 0}</div>
+                  <div className="text-[10px] text-slate-500">/ 100</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-surface-900/60 border border-white/[0.06] rounded-2xl p-6 space-y-5">
+              <h3 className="text-sm font-bold text-white">Feedback on your appraisal</h3>
+              {[
+                { label: 'Your unit head', value: appraisal.unitHeadComment },
+                { label: 'HR', value: appraisal.adminComment },
+                { label: 'Managing Director', value: appraisal.mdComment },
+              ].map((c) => (
+                <div key={c.label}>
+                  <div className="text-xs font-semibold text-slate-300 mb-1.5">{c.label}</div>
+                  <p className={`px-4 py-2.5 rounded-lg text-sm whitespace-pre-wrap ${c.value
+                    ? 'bg-slate-800/50 border border-white/[0.06] text-slate-200'
+                    : 'bg-slate-800/30 border border-dashed border-white/[0.08] text-slate-500 italic'}`}
+                  >
+                    {c.value || 'No comment recorded'}
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            <p className="text-[11px] text-slate-600">
+              Speak to your unit head if anything here does not look right. Download PDF gives you the full record.
+            </p>
+          </motion.div>
+        )}
+
         {activeSection === 'section1' && canSeeSection1 && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
             {/* Read-only banner for non-employees */}
