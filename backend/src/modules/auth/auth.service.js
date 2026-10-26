@@ -1,6 +1,7 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const prisma = require('../../config/db');
+const { normaliseEmail, findUserByEmail } = require('../../utils/email');
 const env = require('../../config/env');
 const { sendWelcomeEmail, sendPasswordResetEmail, sendPasswordChangedEmail } = require('../../utils/mailer');
 
@@ -46,8 +47,9 @@ function verifyRefreshToken(token) {
   return jwt.verify(token, env.jwtRefreshSecret);
 }
 
-async function registerUser({ email, name, password }) {
-  const existing = await prisma.user.findUnique({ where: { email } });
+async function registerUser({ email: rawEmail, name, password }) {
+  const email = normaliseEmail(rawEmail);
+  const existing = await findUserByEmail(prisma, email);
   if (existing) {
     throw new Error('Email already registered');
   }
@@ -82,7 +84,7 @@ async function registerUser({ email, name, password }) {
 }
 
 async function loginUser({ email, password }) {
-  const user = await prisma.user.findUnique({ where: { email } });
+  const user = await findUserByEmail(prisma, email);
   if (!user) {
     throw new Error('Invalid email or password');
   }
@@ -134,7 +136,7 @@ function verifyResetToken(token) {
 }
 
 async function forgotPassword(email) {
-  const user = await prisma.user.findUnique({ where: { email } });
+  const user = await findUserByEmail(prisma, email);
   if (!user) {
     throw new Error('No account found with this email');
   }

@@ -1,4 +1,5 @@
 const prisma = require('../../config/db');
+const { normaliseEmail, findUserByEmail } = require('../../utils/email');
 const bcrypt = require('bcryptjs');
 const { sendStaffInviteEmail, sendAdminPasswordResetEmail } = require('../../utils/mailer');
 const { seedDefaultDepartments } = require('../departments/departments.service');
@@ -78,7 +79,8 @@ async function getOrgById(orgId, userId) {
   return org;
 }
 
-async function inviteToOrg({ orgId, email, name, role = 'member', departmentId, level, staffType = 'permanent', inviterId }) {
+async function inviteToOrg({ orgId, email: rawEmail, name, role = 'member', departmentId, level, staffType = 'permanent', inviterId }) {
+  const email = normaliseEmail(rawEmail);
   if (!['admin', 'lead', 'member', 'md', 'chairman'].includes(role)) {
     throw new Error('Invalid role');
   }
@@ -94,7 +96,7 @@ async function inviteToOrg({ orgId, email, name, role = 'member', departmentId, 
   }
 
   // Find or create user by email
-  let user = await prisma.user.findUnique({ where: { email } });
+  let user = await findUserByEmail(prisma, email);
 
   if (!user) {
     // Auto-create account for the staff member with a default password
@@ -370,7 +372,7 @@ async function updateMemberUser(orgId, memberId, { name, email, integrationEmail
     const trimmed = String(email).trim().toLowerCase();
     if (!EMAIL_RE.test(trimmed)) throw new Error('That email address is not valid');
     if (trimmed !== target.user.email.toLowerCase()) {
-      const taken = await prisma.user.findUnique({ where: { email: trimmed } });
+      const taken = await findUserByEmail(prisma, trimmed);
       if (taken) throw new Error('Another account already uses that email');
       data.email = trimmed;
     }
