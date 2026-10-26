@@ -150,9 +150,12 @@ async function getTeamSummary(orgId, userId) {
       : null,
   }));
 
-  const pendingReviews = members
-    .filter((m) => m.appraisal && m.appraisal.status === 'submitted')
-    .map((m) => ({ id: m.appraisal.id, employeeName: m.name, updatedAt: m.appraisal.updatedAt }));
+  // Every submitted appraisal, not just the newest one per person: a second
+  // appraisal created later would otherwise hide one still awaiting review.
+  const nameByUserId = Object.fromEntries(members.map((m) => [m.userId, m.name]));
+  const pendingReviews = appraisals
+    .filter((a) => a.status === 'submitted')
+    .map((a) => ({ id: a.id, employeeName: nameByUserId[a.employeeId] || 'Unknown', updatedAt: a.updatedAt }));
 
   return {
     department: requester.department?.name || 'All departments',

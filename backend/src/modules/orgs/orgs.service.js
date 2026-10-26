@@ -204,6 +204,9 @@ async function getOrgMembers(orgId, requesterId) {
     where: { userId_orgId: { userId: requesterId, orgId } },
   });
   if (!membership) throw new Error('Not a member of this organisation');
+  // The staff list carries every colleague's email, role and level. The nav
+  // hides it from employees; without this the route still served it to them.
+  if (membership.role === 'member') throw new Error('Only staff with a management role can view the staff list');
 
   const org = await prisma.organisation.findUnique({
     where: { id: orgId },

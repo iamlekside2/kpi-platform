@@ -177,6 +177,23 @@ async function createAppraisal(orgId, employeeId, data) {
 }
 
 // ── Get appraisals for an org ──
+// A unit head reviews their own department, so that is what they see.
+// A lead with no department falls back to the whole org, as elsewhere.
+async function getDepartmentAppraisals(orgId, departmentId) {
+  const members = await prisma.orgMember.findMany({
+    where: { orgId, departmentId },
+    select: { userId: true },
+  });
+  return prisma.appraisal.findMany({
+    where: { orgId, employeeId: { in: members.map((m) => m.userId) } },
+    include: {
+      employee: { select: { id: true, name: true, email: true } },
+      reviewer: { select: { id: true, name: true, email: true } },
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+}
+
 async function getOrgAppraisals(orgId) {
   return prisma.appraisal.findMany({
     where: { orgId },
@@ -326,6 +343,7 @@ module.exports = {
   getGrade,
   createAppraisal,
   getOrgAppraisals,
+  getDepartmentAppraisals,
   getAppraisalById,
   getEmployeeAppraisals,
   updateEmployeeSection,

@@ -78,6 +78,18 @@ async function getAll(req, res) {
       return res.json(appraisals);
     }
 
+    // A unit head reviews their own department and sees only that
+    if (role === 'lead') {
+      const me = await prisma.orgMember.findUnique({
+        where: { userId_orgId: { userId: req.user.userId, orgId: req.params.orgId } },
+        select: { departmentId: true },
+      });
+      if (me?.departmentId) {
+        const scoped = await service.getDepartmentAppraisals(req.params.orgId, me.departmentId);
+        return res.json(scoped);
+      }
+    }
+
     const appraisals = await service.getOrgAppraisals(req.params.orgId);
     res.json(appraisals);
   } catch (err) {
@@ -170,6 +182,23 @@ async function updateUnitHead(req, res) {
     if (!appraisal) return res.status(404).json({ error: 'Appraisal not found' });
 
     const role = await getUserRole(req.user.userId, appraisal.orgId);
+    // Role alone was enough, so any unit head could score any department's
+    // staff. A lead must lead the department the employee is in.
+    if (role === 'lead') {
+      const [me, them] = await Promise.all([
+        prisma.orgMember.findUnique({
+          where: { userId_orgId: { userId: req.user.userId, orgId: appraisal.orgId } },
+          select: { departmentId: true },
+        }),
+        prisma.orgMember.findUnique({
+          where: { userId_orgId: { userId: appraisal.employeeId, orgId: appraisal.orgId } },
+          select: { departmentId: true },
+        }),
+      ]);
+      if (me?.departmentId && me.departmentId !== them?.departmentId) {
+        return res.status(403).json({ error: 'You can only review your own department' });
+      }
+    }
     if (role !== 'lead' && role !== 'admin') {
       return res.status(403).json({ error: 'Only unit heads can score appraisals' });
     }
@@ -200,12 +229,13 @@ async function updateAdmin(req, res) {
       return res.status(400).json({ error: 'Appraisal must be unit-head reviewed first' });
     }
 
-    const updated = await service.updateAdminComment(req.params.id, req.body.adminComment);
-    // Need to fetch full appraisal for notification (updateAdminComment returns minimal)
+    await service.updateAdminComment(req.params.id, req.body.adminComment);
+    // Return the full record: updateAdminComment omits the employee relation,
+    // and the page writes the response straight into state
     const full = await service.getAppraisalById(req.params.id);
     notifyAppraisalReviewed(full, 'admin').catch(() => {});
     auditAppraisalStatusChanged(full, 'unit_reviewed', 'admin_reviewed', req.user.userId).catch(() => {});
-    res.json(updated);
+    res.json(full);
   } catch (err) {
     console.error('Admin comment error:', err);
     res.status(500).json({ error: 'Failed to update admin comment' });

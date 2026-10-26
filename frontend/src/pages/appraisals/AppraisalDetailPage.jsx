@@ -30,6 +30,8 @@ const STATUS_COLORS = {
 const ROLE_LABELS = {
   admin: 'Administrator',
   lead: 'Unit Head',
+  md: 'Managing Director',
+  chairman: 'Chairman',
   member: 'Employee',
 };
 
@@ -386,14 +388,22 @@ export default function AppraisalDetailPage() {
                 {formStructure.selfAssessmentQuestions.map((q) => (
                   <div key={q.key}>
                     <label className="text-xs font-medium text-slate-300 block mb-1.5">{q.label}</label>
-                    <textarea
-                      rows={3}
-                      className="w-full px-4 py-2.5 bg-slate-800/50 border border-white/[0.06] rounded-lg text-sm text-slate-100 placeholder-slate-600 outline-none focus:border-accent-500/50 focus:ring-2 focus:ring-accent-500/20 transition-all resize-y disabled:opacity-60 disabled:cursor-not-allowed"
-                      value={selfAssessment[q.key] || ''}
-                      onChange={(e) => setSelfAssessment({ ...selfAssessment, [q.key]: e.target.value })}
-                      disabled={!canEditEmployee}
-                      placeholder={canEditEmployee ? 'Your answer...' : ''}
-                    />
+                    {/* A reviewer reads these. An empty disabled box looks broken,
+                        so say plainly that the question went unanswered. */}
+                    {!canEditEmployee && !selfAssessment[q.key] ? (
+                      <p className="px-4 py-2.5 bg-slate-800/30 border border-dashed border-white/[0.08] rounded-lg text-sm text-slate-500 italic">
+                        Not answered
+                      </p>
+                    ) : (
+                      <textarea
+                        rows={3}
+                        className="w-full px-4 py-2.5 bg-slate-800/50 border border-white/[0.06] rounded-lg text-sm text-slate-100 placeholder-slate-600 outline-none focus:border-accent-500/50 focus:ring-2 focus:ring-accent-500/20 transition-all resize-y disabled:opacity-60 disabled:cursor-not-allowed"
+                        value={selfAssessment[q.key] || ''}
+                        onChange={(e) => setSelfAssessment({ ...selfAssessment, [q.key]: e.target.value })}
+                        disabled={!canEditEmployee}
+                        placeholder={canEditEmployee ? 'Your answer...' : ''}
+                      />
+                    )}
                   </div>
                 ))}
               </div>

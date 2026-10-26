@@ -177,6 +177,8 @@ async function notifyAppraisalSubmitted(appraisal) {
 // ── Reviewed at a stage → tell the employee, and hand off to whoever is next ──
 async function notifyAppraisalReviewed(appraisal, stage) {
   const stageLabel = stage === 'unit_head' ? 'Unit Head' : 'HR';
+  // "by the HR" reads wrong; the unit head keeps its article
+  const byStage = stage === 'unit_head' ? 'the Unit Head' : 'HR';
   const employee = appraisal.employee?.email
     ? appraisal.employee
     : await getUser(appraisal.employeeId);
@@ -187,12 +189,12 @@ async function notifyAppraisalReviewed(appraisal, stage) {
       orgId: appraisal.orgId,
       type: 'appraisal_reviewed',
       title: `Appraisal Reviewed by ${stageLabel}`,
-      message: `Your performance appraisal has been reviewed by the ${stageLabel}.`,
+      message: `Your performance appraisal has been reviewed by ${byStage}.`,
       appraisalId: appraisal.id,
       email: {
-        subject: `Your appraisal was reviewed by the ${stageLabel} — KPI Platform`,
+        subject: `Your appraisal was reviewed by ${byStage} — KPI Platform`,
         heading: `Reviewed by ${stageLabel}`,
-        body: `Your performance appraisal has been reviewed by the <strong>${stageLabel}</strong>. You can open it to see the comments and scoring recorded so far.`,
+        body: `Your performance appraisal has been reviewed by <strong>${byStage}</strong>. You can open it to see the comments and scoring recorded so far.`,
         ctaLabel: 'View Your Appraisal',
       },
     });

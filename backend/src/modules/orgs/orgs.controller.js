@@ -78,7 +78,8 @@ async function getMembers(req, res) {
     const members = await orgsService.getOrgMembers(req.params.id, req.user.userId);
     return res.json(members);
   } catch (err) {
-    if (err.message === 'Not a member of this organisation') {
+    if (err.message === 'Not a member of this organisation'
+      || err.message === 'Only staff with a management role can view the staff list') {
       return res.status(403).json({ error: err.message });
     }
     console.error('Get members error:', err);
