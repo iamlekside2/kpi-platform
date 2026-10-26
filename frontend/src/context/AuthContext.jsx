@@ -11,7 +11,6 @@ const ACTIVE_ORG_KEY = 'activeOrgId';
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [orgRole, setOrgRole] = useState(null); // admin | lead | member | md | chairman
-  const [isHr, setIsHr] = useState(false); // HR posting, independent of orgRole
   const [activeOrg, setActiveOrg] = useState(null);
   const [orgs, setOrgs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -29,7 +28,6 @@ export function AuthProvider({ children }) {
       // depend on activeOrg don't refetch on every re-check.
       setActiveOrg((prev) => (prev && JSON.stringify(prev) === JSON.stringify(next) ? prev : next));
       setOrgRole(next.role || 'member');
-      setIsHr(Boolean(next.isHr));
     } catch {
       // ignore — orgs might not be set up yet
     }
@@ -69,7 +67,6 @@ export function AuthProvider({ children }) {
       loadOrgRole();
     } else {
       setOrgRole(null);
-      setIsHr(false);
       setActiveOrg(null);
       setOrgs([]);
     }
@@ -113,7 +110,6 @@ export function AuthProvider({ children }) {
     localStorage.setItem(ACTIVE_ORG_KEY, orgId);
     setActiveOrg(next);
     setOrgRole(next.role || 'member');
-    setIsHr(Boolean(next.isHr));
   }, [orgs]);
 
   const logout = useCallback(async () => {
@@ -131,7 +127,7 @@ export function AuthProvider({ children }) {
   return (
     <AuthContext.Provider value={{
       user, setUser, loading, login, register, logout, isAuthenticated: !!user,
-      orgRole, isHr, activeOrg, orgs, switchOrg, loadOrgRole,
+      orgRole, activeOrg, orgs, switchOrg, loadOrgRole,
     }}>
       {children}
     </AuthContext.Provider>

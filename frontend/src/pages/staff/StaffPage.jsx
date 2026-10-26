@@ -8,11 +8,11 @@ import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import {
   ShieldCheck, UsersRound, Briefcase, Landmark, User,
-  Building2, TrendingUp, Pencil, Trash2, BadgeCheck, Plus, X,
+  Building2, TrendingUp, Pencil, Trash2, Plus, X,
 } from 'lucide-react';
 
 const ROLE_CONFIG = {
-  admin: { label: 'Administrator', color: 'bg-accent-500/10 text-accent-400 border-accent-500/20', Icon: ShieldCheck, description: 'Full access: manage staff, KPIs, departments, settings and the HR comment. Does not make them HR.' },
+  admin: { label: 'Administrator', color: 'bg-accent-500/10 text-accent-400 border-accent-500/20', Icon: ShieldCheck, description: 'Full access: manage staff, KPIs, departments, settings and appraisal sign-off' },
   lead: { label: 'Unit Head', color: 'bg-amber-500/10 text-amber-400 border-amber-500/20', Icon: UsersRound, description: 'Can review employee appraisals and provide unit head scoring' },
   md: { label: 'MD', color: 'bg-purple-500/10 text-purple-400 border-purple-500/20', Icon: Briefcase, description: 'Sees everything; provides the final MD comments and scoring on appraisals' },
   chairman: { label: 'Chairman', color: 'bg-rose-500/10 text-rose-400 border-rose-500/20', Icon: Landmark, description: 'View-only access to everything: dashboards, KPIs, appraisals, staff, audit log' },
@@ -170,17 +170,6 @@ export default function StaffPage() {
       toast.success(`${data.name} is now ${STAFF_TYPE_CONFIG[data.staffType].label.toLowerCase()} staff`);
     } catch (err) {
       toast.error(err.response?.data?.error || 'Failed to update staff type');
-    }
-  }
-
-  async function handleHrToggle(memberId, isHr) {
-    try {
-      const { data } = await api.patch(`/orgs/${activeOrg.id}/members/${memberId}/hr`, { isHr });
-      setMembers(members.map((m) => m.id === memberId ? { ...m, isHr: data.isHr } : m));
-      loadOrgRole(); // your own HR flag may have just changed
-      toast.success(data.isHr ? `${data.name} is now HR` : `${data.name} is no longer HR`);
-    } catch (err) {
-      toast.error(err.response?.data?.error || 'Failed to update HR designation');
     }
   }
 
@@ -600,12 +589,6 @@ export default function StaffPage() {
                         <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full border ${(STAFF_TYPE_CONFIG[m.staffType] || STAFF_TYPE_CONFIG.permanent).color}`}>
                           {(STAFF_TYPE_CONFIG[m.staffType] || STAFF_TYPE_CONFIG.permanent).label}
                         </span>
-                        {m.isHr && (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border bg-teal-500/10 text-teal-300 border-teal-500/20">
-                            <BadgeCheck className="w-3 h-3" />
-                            HR
-                          </span>
-                        )}
                       </div>
                       <div className="text-xs text-slate-500">{m.email}</div>
                     </div>
@@ -707,15 +690,6 @@ export default function StaffPage() {
                               title="Change role"
                             >
                               <Pencil className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              onClick={() => handleHrToggle(m.id, !m.isHr)}
-                              className={`p-1.5 rounded-lg transition-all cursor-pointer ${m.isHr
-                                ? 'text-teal-400 hover:bg-teal-500/10'
-                                : 'text-slate-500 hover:text-teal-400 hover:bg-white/[0.06]'}`}
-                              title={m.isHr ? 'Remove HR designation' : 'Designate as HR'}
-                            >
-                              <BadgeCheck className="w-3.5 h-3.5" />
                             </button>
                             <button
                               onClick={() => handleRemove(m.id, m.name)}

@@ -11,17 +11,9 @@ async function getUserRole(userId, orgId) {
   return member?.role || null;
 }
 
-// ── Helper: may this user write the HR/Admin comment? ──
-// Administrators get the same view as one another, so any admin can write
-// it. The HR designation is a separate posting that carries no permission
-// of its own and is never attached by a role change — it simply also
-// allows the stage, so an HR who is not an admin can still complete it.
-async function canCommentAsHr(userId, orgId) {
-  const member = await prisma.orgMember.findUnique({
-    where: { userId_orgId: { userId, orgId } },
-  });
-  return Boolean(member && (member.isHr || member.role === 'admin'));
-}
+// HR is a department, not a permission. The comment stage is an
+// administrative one, so it is gated on the admin role like every other
+// admin capability; who actually sits in HR is visible on the staff list.
 
 // GET /appraisals/form-structure?department=tech&orgId=...
 // orgId is optional; with it the selectable departments and the section
@@ -194,9 +186,9 @@ async function updateAdmin(req, res) {
     const appraisal = await service.getAppraisalById(req.params.id);
     if (!appraisal) return res.status(404).json({ error: 'Appraisal not found' });
 
-    const allowed = await canCommentAsHr(req.user.userId, appraisal.orgId);
-    if (!allowed) {
-      return res.status(403).json({ error: 'Only HR or an administrator can add the HR comment' });
+    const role = await getUserRole(req.user.userId, appraisal.orgId);
+    if (role !== 'admin') {
+      return res.status(403).json({ error: 'Only an administrator can add the HR comment' });
     }
     if (appraisal.status !== 'unit_reviewed' && appraisal.status !== 'admin_reviewed') {
       return res.status(400).json({ error: 'Appraisal must be unit-head reviewed first' });

@@ -35,7 +35,7 @@ const ROLE_LABELS = {
 
 export default function AppraisalDetailPage() {
   const { id } = useParams();
-  const { user, orgRole, isHr, activeOrg } = useAuth();
+  const { user, orgRole, activeOrg } = useAuth();
   const toast = useToast();
   const navigate = useNavigate();
   const [appraisal, setAppraisal] = useState(null);
@@ -149,9 +149,7 @@ export default function AppraisalDetailPage() {
   // What can each role EDIT? (chairman edits nothing)
   const canEditEmployee = isEmployee && status === 'draft';
   const canEditUnitHead = isUnitHead && status === 'submitted';
-  // Every admin sees the same thing as every other admin; HR is an extra
-  // route in for an HR who holds no admin permission.
-  const canEditAdmin = (isAdmin || isHr) && (status === 'unit_reviewed' || status === 'admin_reviewed');
+  const canEditAdmin = isAdmin && (status === 'unit_reviewed' || status === 'admin_reviewed');
   // An admin stands in for the MD only where the org has no MD at all
   const canStandInForMd = isAdmin && activeOrg?.hasMd === false;
   const canEditMd = (isMd || canStandInForMd) && status === 'admin_reviewed';
@@ -159,8 +157,8 @@ export default function AppraisalDetailPage() {
   // Set default active section based on role
   useEffect(() => {
     if (!appraisal || activeSection) return;
-    if (isAdmin || isHr || isMd) {
-      // Admin/HR/MD default to the section they need to act on
+    if (isAdmin || isMd) {
+      // Admin/MD default to the section they need to act on
       if (status === 'unit_reviewed') setActiveSection('section2');
       else if (status === 'admin_reviewed') setActiveSection('section3');
       else setActiveSection('section1');
@@ -169,7 +167,7 @@ export default function AppraisalDetailPage() {
     } else {
       setActiveSection('section1');
     }
-  }, [appraisal, isHr, isAdmin, isMd, isUnitHead, status, activeSection]);
+  }, [appraisal, isAdmin, isMd, isUnitHead, status, activeSection]);
 
   const selfRatingTotal = Object.values(selfRatings).reduce((sum, v) => sum + (Number(v) || 0), 0);
   const unitHeadTotal = Object.values(unitHeadScores).reduce((sum, v) => sum + (Number(v) || 0), 0);
@@ -676,14 +674,14 @@ export default function AppraisalDetailPage() {
             </div>
 
             {/* HR comment — the admin's own review stage, not the MD's */}
-            {(isAdmin || isHr) && (
+            {isAdmin && (
               <div className="bg-surface-900/60 border border-white/[0.06] rounded-xl p-6">
                 <h3 className="text-sm font-bold text-white mb-1 flex items-center gap-2">
                   <Building2 className="w-4 h-4 text-accent-400" />
                   HR / Admin Comment
                 </h3>
                 <p className="text-[11px] text-slate-500 mb-3">
-                  Completed by HR or an administrator after the unit head review. The MD adds their own comments and score separately in the Management section.
+                  Completed by an administrator after the unit head review. The MD adds their own comments and score separately in the Management section.
                 </p>
                 <textarea
                   rows={4}

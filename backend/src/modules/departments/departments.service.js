@@ -63,6 +63,7 @@ async function seedDefaultDepartments(orgId) {
   const defaults = [
     { name: 'Tech / Product Development', slug: 'tech', description: 'Engineering, product, and technical teams' },
     { name: 'Sales & Marketing', slug: 'sales', description: 'Sales, marketing, and business development teams' },
+    { name: 'Human Resources', slug: 'hr', description: 'HR, people operations, and appraisal administration' },
     { name: 'General / Other', slug: 'general', description: 'Administration, operations, and other departments' },
   ];
 
