@@ -17,7 +17,7 @@ import NotificationsPage from './pages/notifications/NotificationsPage';
 import AuditLogsPage from './pages/audit-logs/AuditLogsPage';
 
 export default function App() {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, loading, activeOrg } = useAuth();
 
   if (loading) {
     return (
@@ -34,12 +34,16 @@ export default function App() {
     <Routes>
       {/* Public routes */}
       <Route path="/login" element={isAuthenticated ? <Navigate to="/dashboard" /> : <LoginPage />} />
-      <Route path="/register" element={isAuthenticated ? <Navigate to="/onboarding" /> : <RegisterPage />} />
+      <Route path="/register" element={isAuthenticated ? <Navigate to={activeOrg ? '/dashboard' : '/onboarding'} /> : <RegisterPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
 
       {/* Protected routes */}
-      <Route path="/onboarding" element={<ProtectedRoute><OnboardingPage /></ProtectedRoute>} />
+      {/* Onboarding creates an org, so anyone who already has one is sent
+          to their dashboard rather than being able to stand up a second. */}
+      <Route path="/onboarding" element={
+        <ProtectedRoute>{activeOrg ? <Navigate to="/dashboard" /> : <OnboardingPage />}</ProtectedRoute>
+      } />
       <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
       <Route path="/kpis" element={<ProtectedRoute><KPIsPage /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />

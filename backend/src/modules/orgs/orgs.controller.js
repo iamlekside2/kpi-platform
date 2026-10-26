@@ -12,6 +12,9 @@ async function createOrg(req, res) {
     const org = await orgsService.createOrg({ name, userId: req.user.userId });
     return res.status(201).json(org);
   } catch (err) {
+    if (err.message.startsWith('You already belong to')) {
+      return res.status(400).json({ error: err.message });
+    }
     console.error('Create org error:', err);
     return res.status(500).json({ error: 'Internal server error' });
   }

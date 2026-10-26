@@ -18,6 +18,18 @@ function normaliseLevel(value) {
 }
 
 async function createOrg({ name, userId }) {
+  // Onboarding is reachable by any signed-in user, so without this an
+  // existing member can run it again and stand up a parallel org — which
+  // is how a near-duplicate of the company org got created. Colleagues
+  // join by invitation from the Staff page, never by self-onboarding.
+  const existingMembership = await prisma.orgMember.findFirst({
+    where: { userId },
+    include: { org: { select: { name: true } } },
+  });
+  if (existingMembership) {
+    throw new Error(`You already belong to ${existingMembership.org.name}`);
+  }
+
   const org = await prisma.organisation.create({
     data: {
       name,
