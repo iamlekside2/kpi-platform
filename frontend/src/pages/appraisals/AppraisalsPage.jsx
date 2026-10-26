@@ -70,7 +70,7 @@ export default function AppraisalsPage() {
   async function loadAppraisals(orgId) {
     const [appraisalRes, structureRes] = await Promise.all([
       api.get(`/appraisals/org/${orgId}`),
-      api.get('/appraisals/form-structure'),
+      api.get(`/appraisals/form-structure?orgId=${orgId}`),
     ]);
     setAppraisals(appraisalRes.data);
     setDepartments(structureRes.data.departments || []);
@@ -294,7 +294,7 @@ export default function AppraisalsPage() {
                     <div className="text-sm font-semibold text-white flex items-center gap-2">
                       {a.employee?.name || 'Unknown Employee'}
                       <span className="text-[10px] font-medium text-slate-500 bg-white/[0.04] px-1.5 py-0.5 rounded">
-                        {a.department === 'tech' ? 'Tech' : a.department === 'sales' ? 'Sales' : 'General'}
+                        {departments.find((d) => d.key === a.department)?.name || a.department || 'General'}
                       </span>
                     </div>
                     <div className="text-xs text-slate-500">

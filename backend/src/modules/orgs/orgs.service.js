@@ -158,18 +158,25 @@ async function getUserOrgs(userId) {
       org: {
         include: {
           _count: { select: { members: true, kpis: true } },
+          members: { where: { role: 'md' }, select: { id: true } },
         },
       },
     },
   });
 
-  return memberships.map((m) => ({
-    ...m.org,
-    role: m.role,
-    isHr: m.isHr,
-    memberCount: m.org._count.members,
-    kpiCount: m.org._count.kpis,
-  }));
+  return memberships.map((m) => {
+    // eslint-disable-next-line no-unused-vars
+    const { members, ...org } = m.org;
+    return {
+      ...org,
+      role: m.role,
+      isHr: m.isHr,
+      // Lets the UI offer the MD section to an admin only where no MD exists
+      hasMd: members.length > 0,
+      memberCount: m.org._count.members,
+      kpiCount: m.org._count.kpis,
+    };
+  });
 }
 
 // ── Get org members ──

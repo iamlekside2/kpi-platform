@@ -109,21 +109,38 @@ function getDeptQuestions(department) {
   }
 }
 
-function getDeptLabel(department) {
+// Falls back to the built-in set only when the org's own departments
+// aren't available, so HR/Marketing/Support read as themselves rather
+// than collapsing into "General".
+function getDeptLabel(department, orgDepartments) {
+  const match = (orgDepartments || []).find((d) => d.slug === department);
+  if (match) return match.name;
   switch (department) {
     case 'tech': return 'Technical (Product Development)';
     case 'sales': return 'Sales & Marketing';
+    case 'general': return 'General';
     default: return 'General';
   }
 }
 
 // ── Return form structure ──
-function getFormStructure(department) {
+// orgDepartments, when passed, replaces the built-in list so an appraisal
+// can be raised against any department the org actually created. Only tech
+// and sales carry bespoke question sets; the rest get the shared sections.
+function getFormStructure(department, orgDepartments) {
+  const departments = (orgDepartments && orgDepartments.length > 0)
+    ? orgDepartments.map((d) => ({
+        key: d.slug,
+        name: d.name,
+        hasQuestions: getDeptQuestions(d.slug).length > 0,
+      }))
+    : DEPARTMENTS.map((d) => ({ key: d.key, name: d.name, hasQuestions: getDeptQuestions(d.key).length > 0 }));
+
   return {
-    departments: DEPARTMENTS,
+    departments,
     selfRatingAttributes: SELF_RATING_ATTRIBUTES,
     departmentQuestions: getDeptQuestions(department || 'tech'),
-    departmentLabel: getDeptLabel(department || 'tech'),
+    departmentLabel: getDeptLabel(department || 'tech', orgDepartments),
     selfAssessmentQuestions: SELF_ASSESSMENT_QUESTIONS,
     unitHeadAttributes: UNIT_HEAD_ATTRIBUTES,
     scoring: {

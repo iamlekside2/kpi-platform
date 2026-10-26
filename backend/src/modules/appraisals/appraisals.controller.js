@@ -21,10 +21,27 @@ async function isHrFor(userId, orgId) {
   return Boolean(member?.isHr);
 }
 
-// GET /appraisals/form-structure?department=tech
+// GET /appraisals/form-structure?department=tech&orgId=...
+// orgId is optional; with it the selectable departments and the section
+// label come from the org's own departments rather than the built-in three.
 async function getFormStructure(req, res) {
   const department = req.query.department || 'tech';
-  res.json(service.getFormStructure(department));
+  let orgDepartments = null;
+
+  if (req.query.orgId) {
+    const member = await prisma.orgMember.findUnique({
+      where: { userId_orgId: { userId: req.user.userId, orgId: req.query.orgId } },
+    });
+    if (member) {
+      orgDepartments = await prisma.department.findMany({
+        where: { orgId: req.query.orgId },
+        select: { slug: true, name: true },
+        orderBy: { createdAt: 'asc' },
+      });
+    }
+  }
+
+  res.json(service.getFormStructure(department, orgDepartments));
 }
 
 // POST /appraisals/org/:orgId — only admin/lead can create appraisals
@@ -202,8 +219,17 @@ async function updateMd(req, res) {
     if (!appraisal) return res.status(404).json({ error: 'Appraisal not found' });
 
     const role = await getUserRole(req.user.userId, appraisal.orgId);
-    if (role !== 'admin' && role !== 'md') {
-      return res.status(403).json({ error: 'Only the MD or administrators can add MD comments' });
+    // The MD's own section. An admin may stand in only where the org has
+    // nobody holding the MD role, so a Tech admin can't overwrite a real MD.
+    let allowed = role === 'md';
+    if (!allowed && role === 'admin') {
+      const mdCount = await prisma.orgMember.count({
+        where: { orgId: appraisal.orgId, role: 'md' },
+      });
+      allowed = mdCount === 0;
+    }
+    if (!allowed) {
+      return res.status(403).json({ error: 'Only the MD can add MD comments' });
     }
     if (appraisal.status !== 'admin_reviewed') {
       return res.status(400).json({ error: 'Admin review must be completed first' });

@@ -35,7 +35,7 @@ const ROLE_LABELS = {
 
 export default function AppraisalDetailPage() {
   const { id } = useParams();
-  const { user, orgRole, isHr } = useAuth();
+  const { user, orgRole, isHr, activeOrg } = useAuth();
   const toast = useToast();
   const navigate = useNavigate();
   const [appraisal, setAppraisal] = useState(null);
@@ -65,7 +65,9 @@ export default function AppraisalDetailPage() {
         setAppraisal(a);
 
         // Fetch form structure for this appraisal's department
-        const structureRes = await api.get(`/appraisals/form-structure?department=${a.department || 'tech'}`);
+        const structureRes = await api.get(
+          `/appraisals/form-structure?department=${a.department || 'tech'}&orgId=${a.orgId}`
+        );
         setFormStructure(structureRes.data);
 
         // Load existing data into form state
@@ -148,7 +150,9 @@ export default function AppraisalDetailPage() {
   const canEditEmployee = isEmployee && status === 'draft';
   const canEditUnitHead = isUnitHead && status === 'submitted';
   const canEditAdmin = isHr && (status === 'unit_reviewed' || status === 'admin_reviewed');
-  const canEditMd = (isAdmin || isMd) && status === 'admin_reviewed';
+  // An admin stands in for the MD only where the org has no MD at all
+  const canStandInForMd = isAdmin && activeOrg?.hasMd === false;
+  const canEditMd = (isMd || canStandInForMd) && status === 'admin_reviewed';
 
   // Set default active section based on role
   useEffect(() => {
