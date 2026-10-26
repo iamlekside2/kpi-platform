@@ -6,12 +6,13 @@ import { useAuth } from '../../context/AuthContext';
 import PageWrapper from '../../components/layout/PageWrapper';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
+import { Code2, DollarSign, ClipboardList, FileText } from 'lucide-react';
 
 const STATUS_LABELS = {
   draft: 'Draft',
   submitted: 'Submitted',
   unit_reviewed: 'Unit Reviewed',
-  admin_reviewed: 'Admin Reviewed',
+  admin_reviewed: 'HR Reviewed',
   completed: 'Completed',
 };
 
@@ -24,9 +25,9 @@ const STATUS_COLORS = {
 };
 
 const DEPT_ICONS = {
-  tech: '💻',
-  sales: '💰',
-  general: '📋',
+  tech: Code2,
+  sales: DollarSign,
+  general: ClipboardList,
 };
 
 export default function AppraisalsPage() {
@@ -258,7 +259,9 @@ export default function AppraisalsPage() {
           </div>
         ) : appraisals.length === 0 ? (
           <div className="flex flex-col items-center py-20 text-center">
-            <div className="w-16 h-16 rounded-2xl bg-slate-800/50 border border-white/[0.06] flex items-center justify-center text-2xl mb-4">📋</div>
+            <div className="w-16 h-16 rounded-2xl bg-slate-800/50 border border-white/[0.06] flex items-center justify-center mb-4">
+              <ClipboardList className="w-7 h-7 text-slate-500" />
+            </div>
             <p className="text-sm text-slate-400 mb-4">
               {canCreate
                 ? 'No appraisals yet. Create your first performance review.'
@@ -281,8 +284,11 @@ export default function AppraisalsPage() {
                 className="flex items-center justify-between p-4 bg-surface-900/60 border border-white/[0.06] rounded-xl hover:border-white/10 cursor-pointer transition-all"
               >
                 <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-xl bg-accent-500/10 border border-accent-500/20 flex items-center justify-center text-lg">
-                    {DEPT_ICONS[a.department] || '📝'}
+                  <div className="w-10 h-10 rounded-xl bg-accent-500/10 border border-accent-500/20 flex items-center justify-center">
+                    {(() => {
+                      const Icon = DEPT_ICONS[a.department] || FileText;
+                      return <Icon className="w-5 h-5 text-accent-400" />;
+                    })()}
                   </div>
                   <div>
                     <div className="text-sm font-semibold text-white flex items-center gap-2">

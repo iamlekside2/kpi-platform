@@ -19,6 +19,7 @@ model User {
   notifications       Notification[]
   auditLogs           AuditLog[]
   memberWorkItems     MemberWorkItems[]
+  levelChangesMade    LevelChange[]      @relation("LevelChangedBy")
   createdAt           DateTime           @default(now())
 }
 
@@ -36,20 +37,42 @@ model Organisation {
   notifications   Notification[]
   auditLogs       AuditLog[]
   memberWorkItems MemberWorkItems[]
+  levelChanges    LevelChange[]
   createdAt       DateTime       @default(now())
 }
 
 model OrgMember {
   id           String       @id @default(uuid())
-  role         String       // admin | lead | member
+  role         String       // admin | lead | member | md | chairman
+  level        Int?         // staff grade level: 1, 2, 3 ... (null = not set)
+  staffType    String       @default("permanent") // permanent | contract
   user         User         @relation(fields: [userId], references: [id])
   userId       String
   org          Organisation @relation(fields: [orgId], references: [id])
   orgId        String
   department   Department?  @relation(fields: [departmentId], references: [id])
   departmentId String?
+  levelChanges LevelChange[]
 
   @@unique([userId, orgId])
+}
+
+// Promotion/demotion trail so a staff member's level history is visible,
+// not just their current level.
+model LevelChange {
+  id          String       @id @default(uuid())
+  fromLevel   Int?
+  toLevel     Int
+  note        String       @default("")
+  member      OrgMember    @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  memberId    String
+  changedBy   User         @relation("LevelChangedBy", fields: [changedById], references: [id])
+  changedById String
+  org         Organisation @relation(fields: [orgId], references: [id])
+  orgId       String
+  createdAt   DateTime     @default(now())
+
+  @@index([memberId])
 }
 
 model Department {

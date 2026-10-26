@@ -5,13 +5,14 @@ import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
 import PageWrapper from '../../components/layout/PageWrapper';
 import Button from '../../components/ui/Button';
+import { Bell, ClipboardList, Send, CheckCircle, Trophy, UserPlus } from 'lucide-react';
 
 const TYPE_ICONS = {
-  appraisal_created: '📋',
-  appraisal_submitted: '📤',
-  appraisal_reviewed: '✅',
-  appraisal_completed: '🏆',
-  member_invited: '👤',
+  appraisal_created: ClipboardList,
+  appraisal_submitted: Send,
+  appraisal_reviewed: CheckCircle,
+  appraisal_completed: Trophy,
+  member_invited: UserPlus,
 };
 
 function timeAgo(date) {
@@ -128,8 +129,8 @@ export default function NotificationsPage() {
 
         {notifications.length === 0 ? (
           <div className="flex flex-col items-center py-20 text-center">
-            <div className="w-16 h-16 rounded-2xl bg-surface-900/60 border border-white/[0.06] flex items-center justify-center text-2xl mb-4">
-              🔔
+            <div className="w-16 h-16 rounded-2xl bg-surface-900/60 border border-white/[0.06] flex items-center justify-center mb-4">
+              <Bell className="w-7 h-7 text-slate-500" />
             </div>
             <p className="text-sm text-slate-400">No notifications yet.</p>
             <p className="text-xs text-slate-500 mt-1">Notifications will appear here when actions happen.</p>
@@ -148,7 +149,10 @@ export default function NotificationsPage() {
                     ? 'bg-accent-500/[0.05] border-accent-500/15 hover:bg-accent-500/[0.08]'
                     : 'bg-surface-900/60 border-white/[0.06] hover:bg-surface-900/80'}`}
               >
-                <span className="text-xl shrink-0 mt-0.5">{TYPE_ICONS[n.type] || '🔔'}</span>
+                {(() => {
+                  const Icon = TYPE_ICONS[n.type] || Bell;
+                  return <Icon className={`w-5 h-5 shrink-0 mt-0.5 ${!n.read ? 'text-accent-400' : 'text-slate-500'}`} />;
+                })()}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-start justify-between gap-2">
                     <p className={`text-sm font-semibold ${!n.read ? 'text-white' : 'text-slate-300'}`}>

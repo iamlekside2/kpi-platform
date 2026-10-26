@@ -39,4 +39,16 @@ async function getStaffPerformance(req, res) {
   }
 }
 
-module.exports = { getSummary, getTeam, getStaffPerformance };
+async function getAdminSummary(req, res) {
+  try {
+    const data = await analyticsService.getAdminSummary(req.params.orgId, req.user.userId);
+    return res.json(data);
+  } catch (err) {
+    if (err.message === 'Forbidden') return res.status(403).json({ error: 'Only admins can view the admin summary' });
+    if (err.message === 'Not a member') return res.status(403).json({ error: 'Not a member of this org' });
+    console.error('Admin summary error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
+module.exports = { getSummary, getTeam, getStaffPerformance, getAdminSummary };

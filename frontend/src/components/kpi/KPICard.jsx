@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
+import { Pencil, X } from 'lucide-react';
 import api from '../../services/api';
 
 export default function KPICard({ kpi, onUpdate, onDelete }) {
@@ -46,7 +47,7 @@ export default function KPICard({ kpi, onUpdate, onDelete }) {
               className="w-7 h-7 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] flex items-center justify-center text-xs text-slate-400 hover:text-white transition-all cursor-pointer"
               title="Edit value"
             >
-              ✏
+              <Pencil className="w-3.5 h-3.5" />
             </button>
           )}
           {onDelete && (
@@ -55,7 +56,7 @@ export default function KPICard({ kpi, onUpdate, onDelete }) {
               className="w-7 h-7 rounded-lg bg-white/[0.04] hover:bg-red-500/20 flex items-center justify-center text-xs text-slate-400 hover:text-red-400 transition-all cursor-pointer"
               title="Delete"
             >
-              ✕
+              <X className="w-3.5 h-3.5" />
             </button>
           )}
         </div>

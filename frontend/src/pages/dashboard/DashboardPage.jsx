@@ -7,17 +7,20 @@ import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
 import PageWrapper from '../../components/layout/PageWrapper';
 import Button from '../../components/ui/Button';
+import { Rocket } from 'lucide-react';
 import {
   StatCard, ChartCard, ChartTooltip,
   GRADE_COLORS, STATUS_LABELS, STATUS_COLORS, getAccentColor, getAccentColor400,
 } from './shared';
 import UnitHeadDashboard from './UnitHeadDashboard';
 import ExecutiveDashboard from './ExecutiveDashboard';
+import AdminDashboard from './AdminDashboard';
 
-// Role-aware entry point: unit heads get a team view, MD/chairman the
-// executive overview, everyone else (HR/admin + employees) the org dashboard.
+// Role-aware entry point: admins get the admin console, unit heads a team
+// view, MD/chairman the executive overview, employees the org dashboard.
 export default function DashboardPage() {
   const { orgRole } = useAuth();
+  if (orgRole === 'admin') return <AdminDashboard />;
   if (orgRole === 'lead') return <UnitHeadDashboard />;
   if (orgRole === 'md' || orgRole === 'chairman') return <ExecutiveDashboard />;
   return <OrgDashboard />;
@@ -96,8 +99,8 @@ function OrgDashboard() {
     return (
       <PageWrapper>
         <div className="flex flex-col items-center justify-center py-32 text-center">
-          <div className="w-20 h-20 rounded-2xl bg-accent-500/10 border border-accent-500/20 flex items-center justify-center text-3xl mb-6">
-            🚀
+          <div className="w-20 h-20 rounded-2xl bg-accent-500/10 border border-accent-500/20 flex items-center justify-center mb-6">
+            <Rocket className="w-9 h-9 text-accent-400" />
           </div>
           <h2 className="text-xl font-bold text-white mb-2">Welcome to KPI Platform</h2>
           <p className="text-sm text-slate-400 mb-6">Set up your organisation and add some KPIs to see analytics here.</p>

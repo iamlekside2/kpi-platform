@@ -217,4 +217,147 @@ async function getStaffPerformance(orgId, userId) {
   return { staffCount: members.length, awaitingMd, members };
 }
 
-module.exports = { getOrgSummary, getTeamSummary, getStaffPerformance };
+// ── Admin summary (admin dashboard) ──────────────────────────
+// Scope: whole org. Answers an administrator's questions — what needs my
+// action, who is missing setup, and are the integrations still healthy.
+const STALE_KPI_DAYS = 30;
+
+async function getAdminSummary(orgId, userId) {
+  const requester = await prisma.orgMember.findUnique({
+    where: { userId_orgId: { userId, orgId } },
+  });
+  if (!requester) throw new Error('Not a member');
+  if (requester.role !== 'admin') throw new Error('Forbidden');
+
+  const [org, members, appraisals, kpis, integrations, workItems, auditLogs] = await Promise.all([
+    prisma.organisation.findUnique({ where: { id: orgId }, select: { name: true } }),
+    prisma.orgMember.findMany({
+      where: { orgId },
+      include: {
+        user: { select: { id: true, name: true, email: true, integrationEmail: true } },
+        department: { select: { name: true } },
+      },
+    }),
+    prisma.appraisal.findMany({
+      where: { orgId },
+      orderBy: { updatedAt: 'desc' },
+      select: {
+        id: true, employeeId: true, status: true, department: true, updatedAt: true,
+        employee: { select: { name: true } },
+      },
+    }),
+    prisma.kPI.findMany({
+      where: { orgId },
+      select: { id: true, name: true, category: true, target: true, value: true, updatedAt: true },
+    }),
+    prisma.integration.findMany({
+      where: { orgId },
+      select: { id: true, tool: true, status: true, lastSyncedAt: true },
+    }),
+    prisma.memberWorkItems.findMany({
+      where: { orgId },
+      select: { userId: true },
+    }),
+    prisma.auditLog.findMany({
+      where: { orgId },
+      orderBy: { createdAt: 'desc' },
+      take: 12,
+      include: { user: { select: { name: true } } },
+    }),
+  ]);
+
+  // ── Staff roster health ──
+  const byRole = { admin: 0, lead: 0, member: 0, md: 0, chairman: 0 };
+  for (const m of members) if (byRole.hasOwnProperty(m.role)) byRole[m.role]++;
+
+  const employeesWithAppraisal = new Set(appraisals.map((a) => a.employeeId));
+
+  // ── Appraisal pipeline ──
+  const byStatus = { draft: 0, submitted: 0, unit_reviewed: 0, admin_reviewed: 0, completed: 0 };
+  for (const a of appraisals) if (byStatus.hasOwnProperty(a.status)) byStatus[a.status]++;
+
+  // unit_reviewed is the admin's own queue — the admin comment comes next
+  const awaitingAdminReview = appraisals
+    .filter((a) => a.status === 'unit_reviewed')
+    .map((a) => ({
+      id: a.id,
+      employeeName: a.employee?.name || 'Unknown',
+      department: a.department,
+      updatedAt: a.updatedAt,
+    }));
+
+  // ── KPI coverage ──
+  const staleBefore = new Date(Date.now() - STALE_KPI_DAYS * 24 * 60 * 60 * 1000);
+  const staleKpis = kpis
+    .filter((k) => k.value != null && k.updatedAt < staleBefore)
+    .map((k) => ({ id: k.id, name: k.name, category: k.category, updatedAt: k.updatedAt }));
+
+  // ── Integration / sync health ──
+  const lastLogs = await Promise.all(
+    integrations.map((i) =>
+      prisma.syncLog.findFirst({
+        where: { integrationId: i.id },
+        orderBy: { createdAt: 'desc' },
+        select: { status: true, rowsUpdated: true, errorMessage: true, createdAt: true },
+      })
+    )
+  );
+  const integrationHealth = integrations.map((i, idx) => ({
+    id: i.id,
+    tool: i.tool,
+    status: i.status,
+    lastSyncedAt: i.lastSyncedAt,
+    lastSync: lastLogs[idx] || null,
+  }));
+
+  // Staff the sync has never matched to a work-item record
+  const syncedUserIds = new Set(workItems.map((w) => w.userId));
+  const unsyncedStaff = integrations.length > 0
+    ? members
+        .filter((m) => !syncedUserIds.has(m.userId))
+        .map((m) => ({
+          userId: m.userId,
+          name: m.user.name,
+          email: m.user.integrationEmail || m.user.email,
+          hasIntegrationEmail: !!m.user.integrationEmail,
+        }))
+    : [];
+
+  return {
+    orgName: org?.name || '',
+    staff: {
+      total: members.length,
+      byRole,
+      noDepartment: members
+        .filter((m) => !m.departmentId)
+        .map((m) => ({ userId: m.userId, name: m.user.name })),
+      noAppraisal: members
+        .filter((m) => !employeesWithAppraisal.has(m.userId))
+        .map((m) => ({ userId: m.userId, name: m.user.name, role: m.role })),
+    },
+    appraisals: {
+      total: appraisals.length,
+      byStatus,
+      awaitingAdminReview,
+    },
+    kpis: {
+      total: kpis.length,
+      missingTarget: kpis.filter((k) => k.target == null).length,
+      missingValue: kpis.filter((k) => k.value == null).length,
+      stale: staleKpis,
+      staleAfterDays: STALE_KPI_DAYS,
+    },
+    integrations: integrationHealth,
+    unsyncedStaff,
+    recentActivity: auditLogs.map((l) => ({
+      id: l.id,
+      action: l.action,
+      entityType: l.entityType,
+      description: l.description,
+      userName: l.user?.name || 'System',
+      createdAt: l.createdAt,
+    })),
+  };
+}
+
+module.exports = { getOrgSummary, getTeamSummary, getStaffPerformance, getAdminSummary };

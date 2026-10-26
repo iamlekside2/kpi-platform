@@ -34,7 +34,7 @@ async function auditAppraisalStatusChanged(appraisal, oldStatus, newStatus, user
     draft: 'Draft',
     submitted: 'Submitted',
     unit_reviewed: 'Unit Reviewed',
-    admin_reviewed: 'Admin Reviewed',
+    admin_reviewed: 'HR Reviewed',
     completed: 'Completed',
   };
   await createAuditLog({
@@ -145,6 +145,35 @@ async function auditMemberDepartmentChanged(member, oldDeptId, userId) {
   });
 }
 
+async function auditMemberLevelChanged(member, oldLevel, userId) {
+  const name = member.name || member.user?.name || member.userId;
+  const from = oldLevel ? `Level ${oldLevel}` : 'no level';
+  await createAuditLog({
+    userId,
+    orgId: member.orgId,
+    action: 'update',
+    entityType: 'OrgMember',
+    entityId: member.id,
+    description: `Changed ${name}'s level from ${from} to Level ${member.level}`,
+    oldValues: { level: oldLevel },
+    newValues: { level: member.level },
+  });
+}
+
+async function auditMemberStaffTypeChanged(member, oldStaffType, userId) {
+  const name = member.name || member.user?.name || member.userId;
+  await createAuditLog({
+    userId,
+    orgId: member.orgId,
+    action: 'update',
+    entityType: 'OrgMember',
+    entityId: member.id,
+    description: `Changed ${name} from ${oldStaffType} to ${member.staffType} staff`,
+    oldValues: { staffType: oldStaffType },
+    newValues: { staffType: member.staffType },
+  });
+}
+
 async function auditMemberRemoved(member, userId) {
   const name = member.user?.name || member.user?.email || member.userId;
   await createAuditLog({
@@ -169,5 +198,7 @@ module.exports = {
   auditMemberInvited,
   auditMemberRoleChanged,
   auditMemberDepartmentChanged,
+  auditMemberLevelChanged,
+  auditMemberStaffTypeChanged,
   auditMemberRemoved,
 };

@@ -6,8 +6,19 @@ import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
+import { Check, Wrench, DollarSign, Users, Megaphone, Package, Pencil, ClipboardList } from 'lucide-react';
 
 const STEPS = ['Name Your Organisation', 'Pick Templates', 'Invite Teammates'];
+
+// Same roles the Staff page offers, so onboarding invites aren't stuck as
+// employees until an admin promotes them afterwards.
+const INVITE_ROLES = [
+  { key: 'member', label: 'Employee' },
+  { key: 'lead', label: 'Unit Head' },
+  { key: 'admin', label: 'HR / Admin' },
+  { key: 'md', label: 'MD' },
+  { key: 'chairman', label: 'Chairman' },
+];
 
 export default function OnboardingPage() {
   const [step, setStep] = useState(0);
@@ -16,7 +27,8 @@ export default function OnboardingPage() {
   const [templates, setTemplates] = useState([]);
   const [selectedTemplates, setSelectedTemplates] = useState([]);
   const [inviteEmail, setInviteEmail] = useState('');
-  const [invitedEmails, setInvitedEmails] = useState([]);
+  const [inviteRole, setInviteRole] = useState('member');
+  const [invited, setInvited] = useState([]);
   const [loading, setLoading] = useState(false);
   const { loadOrgRole } = useAuth();
   const toast = useToast();
@@ -67,9 +79,10 @@ export default function OnboardingPage() {
     e.preventDefault();
     if (!inviteEmail) return;
     try {
-      await api.post(`/orgs/${org.id}/invite`, { email: inviteEmail });
-      setInvitedEmails([...invitedEmails, inviteEmail]);
+      await api.post(`/orgs/${org.id}/invite`, { email: inviteEmail, role: inviteRole });
+      setInvited([...invited, { email: inviteEmail, role: inviteRole }]);
       setInviteEmail('');
+      setInviteRole('member');
     } catch (err) {
       toast.error(err.response?.data?.error || 'Failed to invite user');
     }
@@ -81,12 +94,12 @@ export default function OnboardingPage() {
   }
 
   const templateIcons = {
-    tech: '🛠️',
-    sales: '💰',
-    hr: '👥',
-    marketing: '📢',
-    operations: '📦',
-    custom: '✏️',
+    tech: Wrench,
+    sales: DollarSign,
+    hr: Users,
+    marketing: Megaphone,
+    operations: Package,
+    custom: Pencil,
   };
 
   return (
@@ -111,7 +124,7 @@ export default function OnboardingPage() {
                   ${i < step ? 'bg-accent-500 border-accent-500 text-white' :
                     i === step ? 'border-accent-500 text-accent-400 bg-accent-500/10' :
                     'border-white/10 text-slate-600 bg-transparent'}`}>
-                  {i < step ? '✓' : i + 1}
+                  {i < step ? <Check className="w-4 h-4" /> : i + 1}
                 </div>
                 <span className={`text-xs font-medium hidden sm:block transition-colors
                   ${i <= step ? 'text-slate-300' : 'text-slate-600'}`}>
@@ -193,11 +206,14 @@ export default function OnboardingPage() {
                         ${selectedTemplates.includes(t.key)
                           ? 'bg-accent-500 border-accent-500 text-white'
                           : 'border-white/10 text-transparent'}`}>
-                        ✓
+                        <Check className="w-3 h-3" />
                       </div>
 
                       <div className="flex items-center gap-2 mb-2">
-                        <span className="text-lg">{templateIcons[t.key] || '📋'}</span>
+                        {(() => {
+                          const Icon = templateIcons[t.key] || ClipboardList;
+                          return <Icon className="w-4 h-4 text-accent-400" />;
+                        })()}
                         <h3 className="text-sm font-semibold text-white">{t.name}</h3>
                       </div>
                       <p className="text-xs text-slate-400 mb-2 line-clamp-2">{t.description}</p>
@@ -241,17 +257,32 @@ export default function OnboardingPage() {
                     />
                   </div>
                   <div className="mb-4">
+                    <label className="text-xs font-medium text-slate-400 uppercase tracking-wider block mb-2">Role</label>
+                    <select
+                      value={inviteRole}
+                      onChange={(e) => setInviteRole(e.target.value)}
+                      className="px-3 py-2.5 bg-slate-800/50 border border-white/[0.06] rounded-lg text-sm text-slate-200 focus:outline-none focus:border-accent-500/40 cursor-pointer"
+                    >
+                      {INVITE_ROLES.map((r) => (
+                        <option key={r.key} value={r.key}>{r.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="mb-4">
                     <Button type="submit" variant="secondary">Add</Button>
                   </div>
                 </form>
 
-                {invitedEmails.length > 0 && (
+                {invited.length > 0 && (
                   <div className="mt-4 space-y-2">
                     <h4 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Invited</h4>
-                    {invitedEmails.map((email) => (
-                      <div key={email} className="flex items-center gap-2 px-3 py-2 bg-slate-800/50 rounded-lg border border-white/[0.06]">
-                        <div className="w-6 h-6 rounded-full bg-green-500/20 flex items-center justify-center text-[10px] text-green-400">✓</div>
-                        <span className="text-sm text-slate-300">{email}</span>
+                    {invited.map((m) => (
+                      <div key={m.email} className="flex items-center gap-2 px-3 py-2 bg-slate-800/50 rounded-lg border border-white/[0.06]">
+                        <div className="w-6 h-6 rounded-full bg-green-500/20 flex items-center justify-center text-green-400"><Check className="w-3 h-3" /></div>
+                        <span className="text-sm text-slate-300 flex-1 truncate">{m.email}</span>
+                        <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                          {INVITE_ROLES.find((r) => r.key === m.role)?.label || m.role}
+                        </span>
                       </div>
                     ))}
                   </div>

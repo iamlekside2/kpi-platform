@@ -7,6 +7,7 @@ import PageWrapper from '../../components/layout/PageWrapper';
 import KPIGrid from '../../components/kpi/KPIGrid';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
+import { Rocket } from 'lucide-react';
 
 export default function KPIsPage() {
   const { orgRole } = useAuth();
@@ -85,8 +86,8 @@ export default function KPIsPage() {
           </div>
         ) : !activeOrg ? (
           <div className="flex flex-col items-center justify-center py-32 text-center">
-            <div className="w-20 h-20 rounded-2xl bg-accent-500/10 border border-accent-500/20 flex items-center justify-center text-3xl mb-6">
-              🚀
+            <div className="w-20 h-20 rounded-2xl bg-accent-500/10 border border-accent-500/20 flex items-center justify-center mb-6">
+              <Rocket className="w-9 h-9 text-accent-400" />
             </div>
             <h2 className="text-xl font-bold text-white mb-2">Welcome to KPI Platform</h2>
             <p className="text-sm text-slate-400 mb-6">You haven't set up an organisation yet.</p>

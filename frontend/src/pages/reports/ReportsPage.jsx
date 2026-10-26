@@ -8,6 +8,7 @@ import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
 import PageWrapper from '../../components/layout/PageWrapper';
 import Button from '../../components/ui/Button';
+import { TrendingUp } from 'lucide-react';
 
 // Grade colours
 const GRADE_COLORS = { A: '#10b981', B: '#3b82f6', C: '#f59e0b', D: '#ef4444' };
@@ -17,7 +18,7 @@ const STATUS_LABELS = {
   draft: 'Draft',
   submitted: 'Submitted',
   unit_reviewed: 'Unit Reviewed',
-  admin_reviewed: 'Admin Reviewed',
+  admin_reviewed: 'HR Reviewed',
   completed: 'Completed',
 };
 const STATUS_COLORS = ['#64748b', '#818cf8', '#f59e0b', '#3b82f6', '#10b981'];
@@ -138,7 +139,9 @@ export default function ReportsPage() {
     return (
       <PageWrapper>
         <div className="flex flex-col items-center py-32 text-center">
-          <div className="w-16 h-16 rounded-2xl bg-surface-900/60 border border-white/[0.06] flex items-center justify-center text-2xl mb-4">📈</div>
+          <div className="w-16 h-16 rounded-2xl bg-surface-900/60 border border-white/[0.06] flex items-center justify-center mb-4">
+            <TrendingUp className="w-7 h-7 text-slate-500" />
+          </div>
           <p className="text-sm text-slate-400">No analytics data available yet.</p>
         </div>
       </PageWrapper>

@@ -62,7 +62,7 @@ async function generateAppraisalPDF(appraisalId) {
   doc.moveDown(0.2);
 
   // Status badge
-  const STATUS_LABELS = { draft: 'Draft', submitted: 'Submitted', unit_reviewed: 'Unit Reviewed', admin_reviewed: 'Admin Reviewed', completed: 'Completed' };
+  const STATUS_LABELS = { draft: 'Draft', submitted: 'Submitted', unit_reviewed: 'Unit Reviewed', admin_reviewed: 'HR Reviewed', completed: 'Completed' };
   doc.fontSize(9).fillColor(LIGHT).font('Helvetica-Bold').text(`Status: ${STATUS_LABELS[appraisal.status] || appraisal.status}`, 50, 72);
 
   // ── Employee Info ──
@@ -163,10 +163,10 @@ async function generateAppraisalPDF(appraisalId) {
     doc.fontSize(9).fillColor(DARK).font('Helvetica').text(appraisal.unitHeadComment, { indent: 10 });
   }
 
-  // Admin Comment
+  // HR comment — the admin's review stage, distinct from the MD's section below
   if (appraisal.adminComment) {
     doc.moveDown(0.5);
-    doc.fontSize(9).fillColor(MEDIUM).font('Helvetica-Bold').text('Head of Administration Comment:');
+    doc.fontSize(9).fillColor(MEDIUM).font('Helvetica-Bold').text('HR / Admin Comment:');
     doc.fontSize(9).fillColor(DARK).font('Helvetica').text(appraisal.adminComment, { indent: 10 });
   }
 
@@ -275,7 +275,7 @@ async function generateAppraisalsExcel(orgId) {
   headerRow.height = 24;
 
   const DEPT_LABELS = { tech: 'Tech', sales: 'Sales', general: 'General' };
-  const STATUS_LABELS = { draft: 'Draft', submitted: 'Submitted', unit_reviewed: 'Unit Reviewed', admin_reviewed: 'Admin Reviewed', completed: 'Completed' };
+  const STATUS_LABELS = { draft: 'Draft', submitted: 'Submitted', unit_reviewed: 'Unit Reviewed', admin_reviewed: 'HR Reviewed', completed: 'Completed' };
 
   const selfMax = form.selfRatingAttributes.reduce((s, a) => s + a.maxScore, 0);
   const uhMax = form.unitHeadAttributes.reduce((s, a) => s + a.maxScore, 0);

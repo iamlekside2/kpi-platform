@@ -325,6 +325,27 @@ async function getMemberWorkItems({ orgId, targetUserId, userId, periodFrom, per
   return records[0] || null;
 }
 
+// Sync an org's staff tasks for one explicit window — used by an appraisal to
+// pull exactly its own review period, rather than a rolling default that would
+// never line up with the period being reviewed.
+async function syncMemberWorkItemsForOrg({ orgId, userId, periodFrom, periodTo }) {
+  const membership = await prisma.orgMember.findUnique({
+    where: { userId_orgId: { userId, orgId } },
+  });
+  if (!membership) throw new Error('Not a member of this organisation');
+  if (!['admin', 'lead'].includes(membership.role)) {
+    throw new Error('Only admins and unit heads can sync staff tasks');
+  }
+
+  const integration = await prisma.integration.findFirst({
+    where: { orgId, tool: 'ado' },
+    orderBy: { createdAt: 'desc' },
+  });
+  if (!integration) throw new Error('No Azure DevOps integration connected');
+
+  return syncMemberWorkItems({ integrationId: integration.id, userId, periodFrom, periodTo });
+}
+
 module.exports = {
   createIntegration,
   getOrgIntegrations,
@@ -332,5 +353,6 @@ module.exports = {
   testConnection,
   syncIntegration,
   syncMemberWorkItems,
+  syncMemberWorkItemsForOrg,
   getMemberWorkItems,
 };

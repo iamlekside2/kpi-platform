@@ -108,6 +108,33 @@ async function syncMemberWorkItems(req, res) {
   }
 }
 
+async function syncMemberWorkItemsForOrg(req, res) {
+  try {
+    const { periodFrom, periodTo } = req.body;
+    if (!periodFrom || !periodTo) {
+      return res.status(400).json({ error: 'periodFrom and periodTo are required (YYYY-MM-DD)' });
+    }
+    const result = await integrationsService.syncMemberWorkItemsForOrg({
+      orgId: req.params.orgId,
+      userId: req.user.userId,
+      periodFrom,
+      periodTo,
+    });
+    return res.json(result);
+  } catch (err) {
+    const clientErrors = [
+      'Not a member of this organisation',
+      'Only admins and unit heads can sync staff tasks',
+      'No Azure DevOps integration connected',
+    ];
+    if (clientErrors.includes(err.message)) {
+      return res.status(400).json({ error: err.message });
+    }
+    console.error('Org member work items sync error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
 async function getMemberWorkItems(req, res) {
   try {
     const result = await integrationsService.getMemberWorkItems({
@@ -130,4 +157,4 @@ async function getMemberWorkItems(req, res) {
   }
 }
 
-module.exports = { createIntegration, getIntegrations, deleteIntegration, testConnection, syncIntegration, getSyncLogs, syncMemberWorkItems, getMemberWorkItems };
+module.exports = { createIntegration, getIntegrations, deleteIntegration, testConnection, syncIntegration, getSyncLogs, syncMemberWorkItems, syncMemberWorkItemsForOrg, getMemberWorkItems };

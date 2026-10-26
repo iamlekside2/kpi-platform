@@ -7,12 +7,12 @@ import { useToast } from '../../context/ToastContext';
 import PageWrapper from '../../components/layout/PageWrapper';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
-import { Palette, Link2, BellRing, ClipboardList, Sun, Moon, Lock } from 'lucide-react';
+import { Palette, Link2, BellRing, ClipboardList, Sun, Moon, Lock, Check, Boxes, Trello, CircleDot } from 'lucide-react';
 
 const TOOLS = [
-  { key: 'ado', name: 'Azure DevOps', icon: '🔷', fields: ['orgUrl', 'accessToken', 'project'] },
-  { key: 'jira', name: 'Jira', icon: '🟦', fields: ['orgUrl', 'email', 'accessToken'] },
-  { key: 'asana', name: 'Asana', icon: '🟠', fields: ['accessToken', 'projectId'] },
+  { key: 'ado', name: 'Azure DevOps', Icon: Boxes, fields: ['orgUrl', 'accessToken', 'project'] },
+  { key: 'jira', name: 'Jira', Icon: Trello, fields: ['orgUrl', 'email', 'accessToken'] },
+  { key: 'asana', name: 'Asana', Icon: CircleDot, fields: ['accessToken', 'projectId'] },
 ];
 
 // Integrations, alerts and sync history are org administration — admin only.
@@ -37,6 +37,8 @@ export default function SettingsPage() {
   const [connecting, setConnecting] = useState(false);
   const [syncingMembers, setSyncingMembers] = useState(false);
   const [memberSyncResult, setMemberSyncResult] = useState(null);
+  const [syncFrom, setSyncFrom] = useState('');
+  const [syncTo, setSyncTo] = useState('');
 
   // Change-password form
   const [currentPassword, setCurrentPassword] = useState('');
@@ -155,19 +157,18 @@ export default function SettingsPage() {
   }
 
   async function handleSyncMembers(integrationId) {
+    if (!syncFrom || !syncTo) {
+      toast.error('Pick the period you are syncing for');
+      return;
+    }
     setMemberSyncResult(null);
     setSyncingMembers(true);
     try {
-      // Default: last 6 months
-      const today = new Date();
-      const sixMonthsAgo = new Date(today);
-      sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-      const periodFrom = sixMonthsAgo.toISOString().split('T')[0];
-      const periodTo = today.toISOString().split('T')[0];
-
+      // Staff task counts are only meaningful for the period being reviewed,
+      // so the admin picks the window rather than a rolling default.
       const { data } = await api.post(`/integrations/${integrationId}/sync-members`, {
-        periodFrom,
-        periodTo,
+        periodFrom: syncFrom,
+        periodTo: syncTo,
       });
       setMemberSyncResult({ ...data, _integrationId: integrationId });
       toast.success(`Synced staff tasks: ${data.matched} of ${data.totalAdoUsers} ADO users matched`);
@@ -277,8 +278,8 @@ export default function SettingsPage() {
                   title={name.charAt(0).toUpperCase() + name.slice(1)}
                 >
                   {themeColor === name && (
-                    <span className="absolute inset-0 flex items-center justify-center text-white text-sm font-bold">
-                      ✓
+                    <span className="absolute inset-0 flex items-center justify-center text-white">
+                      <Check className="w-4 h-4" />
                     </span>
                   )}
                 </button>
@@ -371,7 +372,7 @@ export default function SettingsPage() {
                   >
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center gap-3">
-                        <span className="text-2xl">{tool.icon}</span>
+                        <tool.Icon className="w-6 h-6 text-accent-400" />
                         <h3 className="text-base font-semibold text-white">{tool.name}</h3>
                         {connectedList.length > 0 && (
                           <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400">
@@ -406,17 +407,42 @@ export default function SettingsPage() {
                             )}
                             <div className="flex flex-wrap gap-2 mt-3">
                               <Button onClick={() => handleSync(connected.id)}>Sync KPIs</Button>
-                              {tool.key === 'ado' && (
-                                <Button
-                                  variant="outline"
-                                  onClick={() => handleSyncMembers(connected.id)}
-                                  disabled={syncingMembers}
-                                >
-                                  {syncingMembers ? 'Syncing...' : 'Sync Staff Tasks'}
-                                </Button>
-                              )}
                               <Button variant="danger" onClick={() => handleDeleteIntegration(connected.id)}>Disconnect</Button>
                             </div>
+                            {tool.key === 'ado' && (
+                              <div className="mt-3 p-3 bg-surface-950/50 rounded-lg border border-white/[0.04]">
+                                <p className="text-[11px] text-slate-400 mb-2">
+                                  Sync staff tasks for the period you are reviewing — counts only cover this window.
+                                </p>
+                                <div className="flex flex-wrap items-end gap-2">
+                                  <div>
+                                    <label className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 block mb-1">From</label>
+                                    <input
+                                      type="date"
+                                      value={syncFrom}
+                                      onChange={(e) => setSyncFrom(e.target.value)}
+                                      className="px-3 py-2 bg-slate-800/50 border border-white/[0.06] rounded-lg text-sm text-slate-200 focus:outline-none focus:border-accent-500/40"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 block mb-1">To</label>
+                                    <input
+                                      type="date"
+                                      value={syncTo}
+                                      onChange={(e) => setSyncTo(e.target.value)}
+                                      className="px-3 py-2 bg-slate-800/50 border border-white/[0.06] rounded-lg text-sm text-slate-200 focus:outline-none focus:border-accent-500/40"
+                                    />
+                                  </div>
+                                  <Button
+                                    variant="outline"
+                                    onClick={() => handleSyncMembers(connected.id)}
+                                    disabled={syncingMembers || !syncFrom || !syncTo}
+                                  >
+                                    {syncingMembers ? 'Syncing...' : 'Sync Staff Tasks'}
+                                  </Button>
+                                </div>
+                              </div>
+                            )}
                             {memberSyncResult && memberSyncResult._integrationId === connected.id && (
                               <div className="mt-3 p-3 bg-surface-950/50 rounded-lg border border-white/[0.04]">
                                 <p className="text-xs text-slate-300">
@@ -544,8 +570,8 @@ export default function SettingsPage() {
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
             {syncLogs.length === 0 ? (
               <div className="flex flex-col items-center py-16 text-center">
-                <div className="w-14 h-14 rounded-2xl bg-slate-800/50 border border-white/[0.06] flex items-center justify-center text-2xl mb-4">
-                  📋
+                <div className="w-14 h-14 rounded-2xl bg-slate-800/50 border border-white/[0.06] flex items-center justify-center mb-4">
+                  <ClipboardList className="w-6 h-6 text-slate-500" />
                 </div>
                 <p className="text-sm text-slate-400">No sync history yet.</p>
               </div>

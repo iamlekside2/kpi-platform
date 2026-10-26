@@ -4,6 +4,18 @@ const { sendStaffInviteEmail } = require('../../utils/mailer');
 const { seedDefaultDepartments } = require('../departments/departments.service');
 
 const SALT_ROUNDS = 12;
+const STAFF_TYPES = ['permanent', 'contract'];
+const MAX_LEVEL = 20;
+
+// Levels arrive from JSON bodies as numbers or strings; '' / null means "not set".
+function normaliseLevel(value) {
+  if (value === undefined || value === null || value === '') return null;
+  const n = Number(value);
+  if (!Number.isInteger(n) || n < 1 || n > MAX_LEVEL) {
+    throw new Error('Invalid level');
+  }
+  return n;
+}
 
 async function createOrg({ name, userId }) {
   const org = await prisma.organisation.create({
@@ -52,10 +64,12 @@ async function getOrgById(orgId, userId) {
   return org;
 }
 
-async function inviteToOrg({ orgId, email, name, role = 'member', departmentId, inviterId }) {
+async function inviteToOrg({ orgId, email, name, role = 'member', departmentId, level, staffType = 'permanent', inviterId }) {
   if (!['admin', 'lead', 'member', 'md', 'chairman'].includes(role)) {
     throw new Error('Invalid role');
   }
+  if (!STAFF_TYPES.includes(staffType)) throw new Error('Invalid staff type');
+  const parsedLevel = normaliseLevel(level);
   // Verify inviter is admin
   const inviterMembership = await prisma.orgMember.findUnique({
     where: { userId_orgId: { userId: inviterId, orgId } },
@@ -94,8 +108,9 @@ async function inviteToOrg({ orgId, email, name, role = 'member', departmentId, 
     throw new Error('User is already a member');
   }
 
-  const memberData = { role, userId: user.id, orgId };
+  const memberData = { role, userId: user.id, orgId, staffType };
   if (departmentId) memberData.departmentId = departmentId;
+  if (parsedLevel !== null) memberData.level = parsedLevel;
 
   const member = await prisma.orgMember.create({
     data: memberData,
@@ -124,6 +139,8 @@ async function inviteToOrg({ orgId, email, name, role = 'member', departmentId, 
   return {
     id: member.id,
     role: member.role,
+    level: member.level,
+    staffType: member.staffType,
     userId: member.userId,
     name: member.user.name,
     email: member.user.email,
@@ -165,6 +182,11 @@ async function getOrgMembers(orgId, requesterId) {
     include: {
       user: { select: { id: true, email: true, name: true, createdAt: true } },
       department: { select: { id: true, name: true, slug: true } },
+      levelChanges: {
+        orderBy: { createdAt: 'desc' },
+        take: 1,
+        select: { fromLevel: true, toLevel: true, createdAt: true },
+      },
     },
     orderBy: { user: { name: 'asc' } },
   });
@@ -172,6 +194,9 @@ async function getOrgMembers(orgId, requesterId) {
   return members.map((m) => ({
     id: m.id,
     role: m.role,
+    level: m.level,
+    staffType: m.staffType,
+    lastLevelChange: m.levelChanges[0] || null,
     userId: m.userId,
     name: m.user.name,
     email: m.user.email,
@@ -227,6 +252,117 @@ async function removeMember(orgId, memberId, requesterId) {
   return { success: true };
 }
 
+// ── Update member level ──
+// Every change is recorded in LevelChange so the promotion trail survives,
+// not just the latest value.
+async function updateMemberLevel(orgId, memberId, { level, note = '' }, requesterId) {
+  const requester = await prisma.orgMember.findUnique({
+    where: { userId_orgId: { userId: requesterId, orgId } },
+  });
+  if (!requester || requester.role !== 'admin') {
+    throw new Error('Only admins can change levels');
+  }
+
+  const newLevel = normaliseLevel(level);
+  if (newLevel === null) throw new Error('Invalid level');
+
+  const target = await prisma.orgMember.findUnique({ where: { id: memberId } });
+  if (!target) throw new Error('Member not found');
+  if (target.orgId !== orgId) throw new Error('Member not found');
+  if (target.level === newLevel) throw new Error('Member is already on that level');
+
+  const [updated] = await prisma.$transaction([
+    prisma.orgMember.update({
+      where: { id: memberId },
+      data: { level: newLevel },
+      include: { user: { select: { id: true, email: true, name: true } } },
+    }),
+    prisma.levelChange.create({
+      data: {
+        memberId,
+        orgId,
+        fromLevel: target.level,
+        toLevel: newLevel,
+        note,
+        changedById: requesterId,
+      },
+    }),
+  ]);
+
+  return {
+    id: updated.id,
+    role: updated.role,
+    level: updated.level,
+    staffType: updated.staffType,
+    userId: updated.userId,
+    name: updated.user.name,
+    email: updated.user.email,
+    previousLevel: target.level,
+  };
+}
+
+// ── Update member staff type (permanent | contract) ──
+async function updateMemberStaffType(orgId, memberId, staffType, requesterId) {
+  const requester = await prisma.orgMember.findUnique({
+    where: { userId_orgId: { userId: requesterId, orgId } },
+  });
+  if (!requester || requester.role !== 'admin') {
+    throw new Error('Only admins can change staff type');
+  }
+  if (!STAFF_TYPES.includes(staffType)) throw new Error('Invalid staff type');
+
+  const target = await prisma.orgMember.findUnique({ where: { id: memberId } });
+  if (!target || target.orgId !== orgId) throw new Error('Member not found');
+
+  const updated = await prisma.orgMember.update({
+    where: { id: memberId },
+    data: { staffType },
+    include: { user: { select: { id: true, email: true, name: true } } },
+  });
+
+  return {
+    id: updated.id,
+    role: updated.role,
+    level: updated.level,
+    staffType: updated.staffType,
+    userId: updated.userId,
+    name: updated.user.name,
+    email: updated.user.email,
+    previousStaffType: target.staffType,
+  };
+}
+
+// ── Level history for one member ──
+async function getMemberLevelHistory(orgId, memberId, requesterId) {
+  const requester = await prisma.orgMember.findUnique({
+    where: { userId_orgId: { userId: requesterId, orgId } },
+  });
+  if (!requester) throw new Error('Not a member of this organisation');
+
+  const target = await prisma.orgMember.findUnique({ where: { id: memberId } });
+  if (!target || target.orgId !== orgId) throw new Error('Member not found');
+
+  // Staff can see their own trail; everyone above member level sees anyone's
+  if (requester.role === 'member' && target.userId !== requesterId) {
+    throw new Error('You can only view your own level history');
+  }
+
+  const changes = await prisma.levelChange.findMany({
+    where: { memberId },
+    orderBy: { createdAt: 'desc' },
+    include: { changedBy: { select: { name: true } } },
+  });
+
+  return changes.map((c) => ({
+    id: c.id,
+    fromLevel: c.fromLevel,
+    toLevel: c.toLevel,
+    note: c.note,
+    changedBy: c.changedBy?.name || 'Unknown',
+    createdAt: c.createdAt,
+  }));
+}
+
 // ── Update member department ──
 async function updateMemberDepartment(orgId, memberId, departmentId, requesterId) {
   const requester = await prisma.orgMember.findUnique({
@@ -275,4 +411,19 @@ async function updateThemeColor(orgId, themeColor, requesterId) {
   return { themeColor: org.themeColor };
 }
 
-module.exports = { createOrg, getOrgById, inviteToOrg, getUserOrgs, getOrgMembers, updateMemberRole, updateMemberDepartment, removeMember, updateThemeColor };
+module.exports = {
+  createOrg,
+  getOrgById,
+  inviteToOrg,
+  getUserOrgs,
+  getOrgMembers,
+  updateMemberRole,
+  updateMemberDepartment,
+  updateMemberLevel,
+  updateMemberStaffType,
+  getMemberLevelHistory,
+  removeMember,
+  updateThemeColor,
+  STAFF_TYPES,
+  MAX_LEVEL,
+};

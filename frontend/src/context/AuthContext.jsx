@@ -15,10 +15,12 @@ export function AuthProvider({ children }) {
   const loadOrgRole = useCallback(async () => {
     try {
       const { data: orgs } = await api.get('/orgs');
-      if (orgs.length > 0) {
-        setActiveOrg(orgs[0]);
-        setOrgRole(orgs[0].role || 'member');
-      }
+      if (orgs.length === 0) return;
+      const next = orgs[0];
+      // Keep the same object identity when nothing changed, so effects that
+      // depend on activeOrg don't refetch on every re-check.
+      setActiveOrg((prev) => (prev && JSON.stringify(prev) === JSON.stringify(next) ? prev : next));
+      setOrgRole(next.role || 'member');
     } catch {
       // ignore — orgs might not be set up yet
     }
@@ -60,6 +62,22 @@ export function AuthProvider({ children }) {
       setOrgRole(null);
       setActiveOrg(null);
     }
+  }, [user, loadOrgRole]);
+
+  // An admin can change someone's role while that person has the app open.
+  // Without this the tab keeps the role it was given at login — a promoted
+  // admin would keep seeing the employee dashboard until a full reload.
+  useEffect(() => {
+    if (!user) return undefined;
+    function recheckRole() {
+      if (document.visibilityState === 'visible') loadOrgRole();
+    }
+    window.addEventListener('focus', recheckRole);
+    document.addEventListener('visibilitychange', recheckRole);
+    return () => {
+      window.removeEventListener('focus', recheckRole);
+      document.removeEventListener('visibilitychange', recheckRole);
+    };
   }, [user, loadOrgRole]);
 
   const login = useCallback(async (email, password) => {

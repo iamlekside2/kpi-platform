@@ -6,13 +6,26 @@ import { useToast } from '../../context/ToastContext';
 import PageWrapper from '../../components/layout/PageWrapper';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
+import {
+  ShieldCheck, UsersRound, Briefcase, Landmark, User,
+  Building2, TrendingUp, Pencil, Trash2,
+} from 'lucide-react';
 
 const ROLE_CONFIG = {
-  admin: { label: 'HR / Admin', color: 'bg-accent-500/10 text-accent-400 border-accent-500/20', icon: '👑', description: 'Full access: manage staff, review all appraisals, admin & MD comments' },
-  lead: { label: 'Unit Head', color: 'bg-amber-500/10 text-amber-400 border-amber-500/20', icon: '👔', description: 'Can review employee appraisals and provide unit head scoring' },
-  md: { label: 'MD', color: 'bg-purple-500/10 text-purple-400 border-purple-500/20', icon: '🎩', description: 'Sees everything; provides the final MD comments and scoring on appraisals' },
-  chairman: { label: 'Chairman', color: 'bg-rose-500/10 text-rose-400 border-rose-500/20', icon: '🏛️', description: 'View-only access to everything: dashboards, KPIs, appraisals, staff, audit log' },
-  member: { label: 'Employee', color: 'bg-slate-500/10 text-slate-400 border-slate-500/20', icon: '👤', description: 'Can fill self-assessment and view own appraisals' },
+  admin: { label: 'HR / Admin', color: 'bg-accent-500/10 text-accent-400 border-accent-500/20', Icon: ShieldCheck, description: 'Full access: manage staff, review all appraisals, HR & MD comments' },
+  lead: { label: 'Unit Head', color: 'bg-amber-500/10 text-amber-400 border-amber-500/20', Icon: UsersRound, description: 'Can review employee appraisals and provide unit head scoring' },
+  md: { label: 'MD', color: 'bg-purple-500/10 text-purple-400 border-purple-500/20', Icon: Briefcase, description: 'Sees everything; provides the final MD comments and scoring on appraisals' },
+  chairman: { label: 'Chairman', color: 'bg-rose-500/10 text-rose-400 border-rose-500/20', Icon: Landmark, description: 'View-only access to everything: dashboards, KPIs, appraisals, staff, audit log' },
+  member: { label: 'Employee', color: 'bg-slate-500/10 text-slate-400 border-slate-500/20', Icon: User, description: 'Can fill self-assessment and view own appraisals' },
+};
+
+// Grade levels: 1 is the entry band. The backend accepts up to 20, the picker
+// offers the range the org actually uses.
+const LEVELS = Array.from({ length: 10 }, (_, i) => i + 1);
+
+const STAFF_TYPE_CONFIG = {
+  permanent: { label: 'Permanent', color: 'bg-sky-500/10 text-sky-400 border-sky-500/20' },
+  contract: { label: 'Contract', color: 'bg-orange-500/10 text-orange-400 border-orange-500/20' },
 };
 
 const DEPT_COLORS = {
@@ -37,9 +50,16 @@ export default function StaffPage() {
   const [inviteRole, setInviteRole] = useState('member');
   const [inviteDeptId, setInviteDeptId] = useState('');
   const [inviting, setInviting] = useState(false);
+  const [inviteLevel, setInviteLevel] = useState('');
+  const [inviteStaffType, setInviteStaffType] = useState('permanent');
   const [editingMember, setEditingMember] = useState(null);
   const [editingDept, setEditingDept] = useState(null);
+  const [editingLevel, setEditingLevel] = useState(null);
+  const [historyFor, setHistoryFor] = useState(null);
+  const [levelHistory, setLevelHistory] = useState([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
   const [filterDept, setFilterDept] = useState('all');
+  const [filterStaffType, setFilterStaffType] = useState('all');
 
   const isAdmin = orgRole === 'admin';
 
@@ -84,6 +104,8 @@ export default function StaffPage() {
         name: inviteName,
         role: inviteRole,
         departmentId: inviteDeptId || undefined,
+        level: inviteLevel || undefined,
+        staffType: inviteStaffType,
       });
       setMembers([...members, data]);
       setShowInvite(false);
@@ -91,6 +113,8 @@ export default function StaffPage() {
       setInviteEmail('');
       setInviteRole('member');
       setInviteDeptId('');
+      setInviteLevel('');
+      setInviteStaffType('permanent');
       toast.success(`${data.name} added! Default password: Welcome@123`);
     } catch (err) {
       toast.error(err.response?.data?.error || 'Failed to invite member');
@@ -122,6 +146,49 @@ export default function StaffPage() {
     }
   }
 
+  async function handleLevelChange(memberId, level) {
+    try {
+      const { data } = await api.patch(`/orgs/${activeOrg.id}/members/${memberId}/level`, { level });
+      setMembers(members.map((m) => m.id === memberId
+        ? { ...m, level: data.level, lastLevelChange: { fromLevel: data.previousLevel, toLevel: data.level, createdAt: new Date().toISOString() } }
+        : m));
+      setEditingLevel(null);
+      const from = data.previousLevel ? `Level ${data.previousLevel}` : 'no level';
+      toast.success(`${data.name}: ${from} → Level ${data.level}`);
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to update level');
+    }
+  }
+
+  async function handleStaffTypeChange(memberId, staffType) {
+    try {
+      const { data } = await api.patch(`/orgs/${activeOrg.id}/members/${memberId}/staff-type`, { staffType });
+      setMembers(members.map((m) => m.id === memberId ? { ...m, staffType: data.staffType } : m));
+      toast.success(`${data.name} is now ${STAFF_TYPE_CONFIG[data.staffType].label.toLowerCase()} staff`);
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to update staff type');
+    }
+  }
+
+  async function openLevelHistory(member) {
+    if (historyFor === member.id) {
+      setHistoryFor(null);
+      return;
+    }
+    setHistoryFor(member.id);
+    setLevelHistory([]);
+    setLoadingHistory(true);
+    try {
+      const { data } = await api.get(`/orgs/${activeOrg.id}/members/${member.id}/level-history`);
+      setLevelHistory(data);
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to load level history');
+      setHistoryFor(null);
+    } finally {
+      setLoadingHistory(false);
+    }
+  }
+
   async function handleRemove(memberId, name) {
     const ok = await toast.confirm({
       title: `Remove ${name}?`,
@@ -139,11 +206,17 @@ export default function StaffPage() {
     }
   }
 
-  const filteredMembers = filterDept === 'all'
+  const byDept = filterDept === 'all'
     ? members
     : filterDept === 'unassigned'
       ? members.filter((m) => !m.department)
       : members.filter((m) => m.department?.id === filterDept);
+
+  const filteredMembers = filterStaffType === 'all'
+    ? byDept
+    : byDept.filter((m) => (m.staffType || 'permanent') === filterStaffType);
+
+  const contractCount = members.filter((m) => m.staffType === 'contract').length;
 
   if (!activeOrg) {
     return (
@@ -212,12 +285,32 @@ export default function StaffPage() {
           </div>
         )}
 
+        {/* Employment type filter */}
+        <div className="flex gap-1 p-1 bg-surface-900/60 border border-white/[0.06] rounded-xl mb-6 overflow-x-auto w-fit">
+          {[
+            { key: 'all', label: `All staff (${members.length})` },
+            { key: 'permanent', label: `Permanent (${members.length - contractCount})` },
+            { key: 'contract', label: `Contract (${contractCount})` },
+          ].map((f) => (
+            <button
+              key={f.key}
+              onClick={() => setFilterStaffType(f.key)}
+              className={`px-4 py-2 rounded-lg text-xs font-medium transition-all whitespace-nowrap cursor-pointer
+                ${filterStaffType === f.key
+                  ? 'bg-accent-500/15 text-accent-400 shadow-sm'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]'}`}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+
         {/* Role legend */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
           {Object.entries(ROLE_CONFIG).map(([key, cfg]) => (
             <div key={key} className="p-3 bg-surface-900/60 border border-white/[0.06] rounded-xl">
               <div className="flex items-center gap-2 mb-1">
-                <span className="text-lg">{cfg.icon}</span>
+                <cfg.Icon className="w-4 h-4 text-slate-400" />
                 <span className={`text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${cfg.color}`}>
                   {cfg.label}
                 </span>
@@ -284,6 +377,35 @@ export default function StaffPage() {
                     </div>
                   )}
 
+                  {/* Level + employment type */}
+                  <div className="grid grid-cols-2 gap-3 mb-4">
+                    <div>
+                      <label className="text-xs font-medium text-slate-400 uppercase tracking-wider block mb-2">Level</label>
+                      <select
+                        value={inviteLevel}
+                        onChange={(e) => setInviteLevel(e.target.value)}
+                        className="w-full px-4 py-2.5 bg-slate-800/50 border border-white/[0.06] rounded-lg text-sm text-slate-100 outline-none focus:border-accent-500/50 focus:ring-2 focus:ring-accent-500/20 transition-all appearance-none cursor-pointer"
+                      >
+                        <option value="" className="bg-slate-800">Not set</option>
+                        {LEVELS.map((l) => (
+                          <option key={l} value={l} className="bg-slate-800">Level {l}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-slate-400 uppercase tracking-wider block mb-2">Employment</label>
+                      <select
+                        value={inviteStaffType}
+                        onChange={(e) => setInviteStaffType(e.target.value)}
+                        className="w-full px-4 py-2.5 bg-slate-800/50 border border-white/[0.06] rounded-lg text-sm text-slate-100 outline-none focus:border-accent-500/50 focus:ring-2 focus:ring-accent-500/20 transition-all appearance-none cursor-pointer"
+                      >
+                        {Object.entries(STAFF_TYPE_CONFIG).map(([key, cfg]) => (
+                          <option key={key} value={key} className="bg-slate-800">{cfg.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
                   <div className="mb-4">
                     <label className="text-xs font-medium text-slate-400 uppercase tracking-wider block mb-2">Assign Role</label>
                     <div className="space-y-2">
@@ -297,7 +419,7 @@ export default function StaffPage() {
                               ? 'bg-accent-500/10 border-accent-500/40'
                               : 'bg-slate-800/50 border-white/[0.06] hover:border-white/10'}`}
                         >
-                          <span className="text-lg">{cfg.icon}</span>
+                          <cfg.Icon className="w-4 h-4 text-slate-400 shrink-0" />
                           <div>
                             <span className="text-sm font-semibold text-white block">{cfg.label}</span>
                             <span className="text-[10px] text-slate-500">{cfg.description}</span>
@@ -338,11 +460,12 @@ export default function StaffPage() {
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.03 }}
-                  className="flex items-center justify-between p-4 bg-surface-900/60 border border-white/[0.06] rounded-xl hover:border-white/10 transition-all"
+                  className="p-4 bg-surface-900/60 border border-white/[0.06] rounded-xl hover:border-white/10 transition-all"
                 >
+                  <div className="flex items-center justify-between">
                   <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-full bg-accent-500/10 border border-accent-500/20 flex items-center justify-center text-lg">
-                      {cfg.icon}
+                    <div className="w-10 h-10 rounded-full bg-accent-500/10 border border-accent-500/20 flex items-center justify-center">
+                      <cfg.Icon className="w-5 h-5 text-accent-400" />
                     </div>
                     <div>
                       <div className="text-sm font-semibold text-white flex items-center gap-2 flex-wrap">
@@ -352,6 +475,18 @@ export default function StaffPage() {
                             {m.department.name}
                           </span>
                         )}
+                        {m.level != null && (
+                          <button
+                            onClick={() => openLevelHistory(m)}
+                            className="text-[10px] font-bold px-2 py-0.5 rounded-full border bg-violet-500/10 text-violet-300 border-violet-500/20 hover:bg-violet-500/20 transition-all cursor-pointer"
+                            title="View level history"
+                          >
+                            Level {m.level}
+                          </button>
+                        )}
+                        <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full border ${(STAFF_TYPE_CONFIG[m.staffType] || STAFF_TYPE_CONFIG.permanent).color}`}>
+                          {(STAFF_TYPE_CONFIG[m.staffType] || STAFF_TYPE_CONFIG.permanent).label}
+                        </span>
                       </div>
                       <div className="text-xs text-slate-500">{m.email}</div>
                     </div>
@@ -372,6 +507,34 @@ export default function StaffPage() {
                         </select>
                         <button
                           onClick={() => setEditingDept(null)}
+                          className="px-2 py-1 text-slate-500 hover:text-slate-300 text-xs cursor-pointer"
+                        >
+                          &times;
+                        </button>
+                      </div>
+                    ) : editingLevel === m.id ? (
+                      <div className="flex gap-1 items-center">
+                        <select
+                          defaultValue={m.level ?? ''}
+                          onChange={(e) => e.target.value && handleLevelChange(m.id, e.target.value)}
+                          className="px-2 py-1 bg-slate-800/80 border border-white/[0.08] rounded-lg text-[11px] text-slate-200 outline-none cursor-pointer"
+                        >
+                          <option value="" className="bg-slate-800">Set level</option>
+                          {LEVELS.map((l) => (
+                            <option key={l} value={l} className="bg-slate-800">Level {l}</option>
+                          ))}
+                        </select>
+                        <select
+                          value={m.staffType || 'permanent'}
+                          onChange={(e) => handleStaffTypeChange(m.id, e.target.value)}
+                          className="px-2 py-1 bg-slate-800/80 border border-white/[0.08] rounded-lg text-[11px] text-slate-200 outline-none cursor-pointer"
+                        >
+                          {Object.entries(STAFF_TYPE_CONFIG).map(([key, c]) => (
+                            <option key={key} value={key} className="bg-slate-800">{c.label}</option>
+                          ))}
+                        </select>
+                        <button
+                          onClick={() => setEditingLevel(null)}
                           className="px-2 py-1 text-slate-500 hover:text-slate-300 text-xs cursor-pointer"
                         >
                           &times;
@@ -410,33 +573,62 @@ export default function StaffPage() {
                               className="p-1.5 rounded-lg text-slate-500 hover:text-slate-300 hover:bg-white/[0.06] transition-all cursor-pointer"
                               title="Change department"
                             >
-                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                              </svg>
+                              <Building2 className="w-3.5 h-3.5" />
                             </button>
                             <button
-                              onClick={() => { setEditingMember(m.id); setEditingDept(null); }}
+                              onClick={() => { setEditingLevel(m.id); setEditingDept(null); setEditingMember(null); }}
+                              className="p-1.5 rounded-lg text-slate-500 hover:text-slate-300 hover:bg-white/[0.06] transition-all cursor-pointer"
+                              title="Change level or employment type"
+                            >
+                              <TrendingUp className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => { setEditingMember(m.id); setEditingDept(null); setEditingLevel(null); }}
                               className="p-1.5 rounded-lg text-slate-500 hover:text-slate-300 hover:bg-white/[0.06] transition-all cursor-pointer"
                               title="Change role"
                             >
-                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                              </svg>
+                              <Pencil className="w-3.5 h-3.5" />
                             </button>
                             <button
                               onClick={() => handleRemove(m.id, m.name)}
                               className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-all cursor-pointer"
                               title="Remove member"
                             >
-                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                              </svg>
+                              <Trash2 className="w-3.5 h-3.5" />
                             </button>
                           </div>
                         )}
                       </>
                     )}
                   </div>
+                  </div>
+
+                  {/* Level history — the promotion trail behind the current level */}
+                  {historyFor === m.id && (
+                    <div className="mt-3 pt-3 border-t border-white/[0.06]">
+                      {loadingHistory ? (
+                        <p className="text-[11px] text-slate-500">Loading level history...</p>
+                      ) : levelHistory.length === 0 ? (
+                        <p className="text-[11px] text-slate-500">
+                          No level changes recorded — Level {m.level} was set when they were added.
+                        </p>
+                      ) : (
+                        <div className="space-y-1.5">
+                          {levelHistory.map((h) => (
+                            <div key={h.id} className="flex items-center gap-2 text-[11px]">
+                              <span className="text-slate-300 font-medium">
+                                {h.fromLevel ? `Level ${h.fromLevel}` : 'No level'} &rarr; Level {h.toLevel}
+                              </span>
+                              <span className="text-slate-600">
+                                {new Date(h.createdAt).toLocaleDateString()} &middot; by {h.changedBy}
+                              </span>
+                              {h.note && <span className="text-slate-500 italic truncate">{h.note}</span>}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </motion.div>
               );
             })}

@@ -8,7 +8,7 @@ export const STATUS_LABELS = {
   draft: 'Draft',
   submitted: 'Submitted',
   unit_reviewed: 'Unit Reviewed',
-  admin_reviewed: 'Admin Reviewed',
+  admin_reviewed: 'HR Reviewed',
   completed: 'Completed',
 };
 export const STATUS_COLORS = ['#64748b', '#818cf8', '#f59e0b', '#3b82f6', '#10b981'];

@@ -1,11 +1,12 @@
 import KPICard from './KPICard';
+import { BarChart3 } from 'lucide-react';
 
 export default function KPIGrid({ kpis, onUpdate, onDelete }) {
   if (!kpis || kpis.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-center">
-        <div className="w-16 h-16 rounded-2xl bg-slate-800/50 border border-white/[0.06] flex items-center justify-center text-2xl mb-4">
-          📊
+        <div className="w-16 h-16 rounded-2xl bg-slate-800/50 border border-white/[0.06] flex items-center justify-center mb-4">
+          <BarChart3 className="w-7 h-7 text-slate-500" />
         </div>
         <p className="text-sm text-slate-400">No KPIs yet. Apply a template or add custom KPIs to get started.</p>
       </div>

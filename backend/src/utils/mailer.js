@@ -209,10 +209,39 @@ function sendPasswordChangedEmail({ email, name }) {
   });
 }
 
+// ── Appraisal lifecycle emails ───────────────────────────────
+// One shared shell so every appraisal stage looks the same in the inbox.
+function sendAppraisalEmail({ email, name, subject, heading, body, ctaLabel, appraisalId, footnote }) {
+  const link = appraisalId
+    ? `${getFrontendUrl()}/appraisals/${appraisalId}`
+    : `${getFrontendUrl()}/appraisals`;
+
+  return sendEmail({
+    to: email,
+    subject,
+    html: `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 520px; margin: 0 auto; background: #f8fafc; padding: 32px; border-radius: 12px;">
+        <div style="background: #4f46e5; padding: 24px; border-radius: 10px 10px 0 0; text-align: center;">
+          <h1 style="color: white; margin: 0; font-size: 22px;">${heading}</h1>
+        </div>
+        <div style="background: white; padding: 28px; border-radius: 0 0 10px 10px; border: 1px solid #e2e8f0; border-top: none;">
+          <p style="color: #334155; font-size: 15px; line-height: 1.6;">Hi <strong>${name}</strong>,</p>
+          <p style="color: #334155; font-size: 15px; line-height: 1.6;">${body}</p>
+          <div style="text-align: center; margin: 24px 0;">
+            <a href="${link}" style="display: inline-block; padding: 12px 32px; background: #4f46e5; color: white; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px;">${ctaLabel}</a>
+          </div>
+          ${footnote ? `<p style="color: #94a3b8; font-size: 13px; margin-top: 20px;">${footnote}</p>` : ''}
+        </div>
+      </div>
+    `,
+  });
+}
+
 module.exports = {
   sendEmail,
   sendWelcomeEmail,
   sendStaffInviteEmail,
   sendPasswordResetEmail,
   sendPasswordChangedEmail,
+  sendAppraisalEmail,
 };

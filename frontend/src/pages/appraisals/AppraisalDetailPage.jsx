@@ -6,12 +6,16 @@ import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import PageWrapper from '../../components/layout/PageWrapper';
 import Button from '../../components/ui/Button';
+import {
+  FileText, DollarSign, Code2, Boxes, UsersRound, Building2,
+  Eye, Info, Target, BarChart3,
+} from 'lucide-react';
 
 const STATUS_LABELS = {
   draft: 'Draft',
   submitted: 'Submitted',
   unit_reviewed: 'Unit Reviewed',
-  admin_reviewed: 'Admin Reviewed',
+  admin_reviewed: 'HR Reviewed',
   completed: 'Completed',
 };
 
@@ -51,6 +55,7 @@ export default function AppraisalDetailPage() {
   const [adminComment, setAdminComment] = useState('');
   const [mdComment, setMdComment] = useState('');
   const [mdScore, setMdScore] = useState(0);
+  const [syncingTasks, setSyncingTasks] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -98,6 +103,31 @@ export default function AppraisalDetailPage() {
     loadWorkItems();
   }, [appraisal]);
 
+  // Pull Azure DevOps tasks for exactly this appraisal's review period, so the
+  // counts line up with what is being reviewed rather than a rolling window.
+  async function handleSyncReviewPeriod() {
+    if (!appraisal) return;
+    const periodFrom = appraisal.reviewPeriodFrom?.split('T')[0];
+    const periodTo = appraisal.reviewPeriodTo?.split('T')[0];
+    setSyncingTasks(true);
+    try {
+      const { data: result } = await api.post(`/integrations/org/${appraisal.orgId}/sync-members`, {
+        periodFrom,
+        periodTo,
+      });
+      const { data } = await api.get(
+        `/integrations/org/${appraisal.orgId}/member/${appraisal.employeeId}/work-items`,
+        { params: { periodFrom: appraisal.reviewPeriodFrom, periodTo: appraisal.reviewPeriodTo } }
+      );
+      setWorkItemData(data);
+      toast.success(`Synced ${result.matched} of ${result.totalAdoUsers} Azure DevOps users for this period`);
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Could not sync tasks for this period');
+    } finally {
+      setSyncingTasks(false);
+    }
+  }
+
   // ── Role-based access logic ──
   const isEmployee = appraisal?.employeeId === user?.id;
   const role = orgRole || 'member';
@@ -143,11 +173,11 @@ export default function AppraisalDetailPage() {
 
   // Build visible tabs based on role
   const SECTIONS = [
-    ...(canSeeSection1 ? [{ key: 'section1', label: 'Self Assessment', icon: '📝' }] : []),
-    ...(canSeeDeptQuestions && hasDeptQuestions ? [{ key: 'department', label: deptLabel, icon: appraisal?.department === 'sales' ? '💰' : '💻' }] : []),
-    ...((isUnitHead || isAdmin || isExecutive) && workItemData ? [{ key: 'ado_tasks', label: 'Azure DevOps Tasks', icon: '🔷' }] : []),
-    ...(canSeeSection2 ? [{ key: 'section2', label: 'Unit Head Review', icon: '👔' }] : []),
-    ...(canSeeSection3 ? [{ key: 'section3', label: 'Management', icon: '🏢' }] : []),
+    ...(canSeeSection1 ? [{ key: 'section1', label: 'Self Assessment', Icon: FileText }] : []),
+    ...(canSeeDeptQuestions && hasDeptQuestions ? [{ key: 'department', label: deptLabel, Icon: appraisal?.department === 'sales' ? DollarSign : Code2 }] : []),
+    ...((isUnitHead || isAdmin || isExecutive) ? [{ key: 'ado_tasks', label: 'Azure DevOps Tasks', Icon: Boxes }] : []),
+    ...(canSeeSection2 ? [{ key: 'section2', label: 'Unit Head Review', Icon: UsersRound }] : []),
+    ...(canSeeSection3 ? [{ key: 'section3', label: 'Management', Icon: Building2 }] : []),
   ];
 
   async function handleSaveDraft() {
@@ -323,7 +353,7 @@ export default function AppraisalDetailPage() {
                   ? 'bg-accent-500/15 text-accent-400 shadow-sm'
                   : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]'}`}
             >
-              <span>{s.icon}</span>
+              <s.Icon className="w-4 h-4" />
               {s.label}
             </button>
           ))}
@@ -335,7 +365,7 @@ export default function AppraisalDetailPage() {
             {/* Read-only banner for non-employees */}
             {!isEmployee && (
               <div className="px-4 py-2 bg-slate-800/50 border border-white/[0.06] rounded-lg text-xs text-slate-500 flex items-center gap-2">
-                <span>👁</span> You are viewing the employee&apos;s self-assessment (read-only)
+                <Eye className="w-3.5 h-3.5" /> You are viewing the employee&apos;s self-assessment (read-only)
               </div>
             )}
 
@@ -410,13 +440,16 @@ export default function AppraisalDetailPage() {
             {/* Read-only banner for non-employees */}
             {!isEmployee && (
               <div className="mb-4 px-4 py-2 bg-slate-800/50 border border-white/[0.06] rounded-lg text-xs text-slate-500 flex items-center gap-2">
-                <span>👁</span> You are viewing the employee&apos;s department responses (read-only)
+                <Eye className="w-3.5 h-3.5" /> You are viewing the employee&apos;s department responses (read-only)
               </div>
             )}
 
             <div className="bg-surface-900/60 border border-white/[0.06] rounded-xl p-6">
               <h3 className="text-sm font-bold text-white mb-1 flex items-center gap-2">
-                {appraisal?.department === 'sales' ? '💰' : '💻'} {deptLabel}
+                {appraisal?.department === 'sales'
+                  ? <DollarSign className="w-4 h-4 text-accent-400" />
+                  : <Code2 className="w-4 h-4 text-accent-400" />}
+                {deptLabel}
               </h3>
               <p className="text-xs text-slate-500 mb-4">
                 {appraisal?.department === 'sales'
@@ -444,6 +477,24 @@ export default function AppraisalDetailPage() {
         )}
 
         {/* ── ADO TASKS TAB ── */}
+        {activeSection === 'ado_tasks' && !workItemData && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center py-16">
+            <p className="text-sm text-slate-400">
+              No Azure DevOps tasks synced for this review period yet.
+            </p>
+            <p className="text-[11px] text-slate-600 mt-1">
+              {new Date(appraisal.reviewPeriodFrom).toLocaleDateString()} – {new Date(appraisal.reviewPeriodTo).toLocaleDateString()}
+            </p>
+            {(isUnitHead || isAdmin) && (
+              <div className="mt-4">
+                <Button onClick={handleSyncReviewPeriod} disabled={syncingTasks}>
+                  {syncingTasks ? 'Syncing...' : 'Sync tasks for this period'}
+                </Button>
+              </div>
+            )}
+          </motion.div>
+        )}
+
         {activeSection === 'ado_tasks' && workItemData && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
             {/* Summary cards */}
@@ -474,7 +525,15 @@ export default function AppraisalDetailPage() {
                   <p className="text-[11px] text-slate-500 mt-0.5">
                     ADO email: {workItemData.externalEmail} &middot; Synced: {new Date(workItemData.syncedAt).toLocaleString()}
                   </p>
+                  <p className="text-[11px] text-slate-600 mt-0.5">
+                    Review period: {new Date(appraisal.reviewPeriodFrom).toLocaleDateString()} – {new Date(appraisal.reviewPeriodTo).toLocaleDateString()}
+                  </p>
                 </div>
+                {(isUnitHead || isAdmin) && (
+                  <Button variant="outline" onClick={handleSyncReviewPeriod} disabled={syncingTasks}>
+                    {syncingTasks ? 'Syncing...' : 'Re-sync period'}
+                  </Button>
+                )}
               </div>
 
               {(workItemData.items || []).length === 0 ? (
@@ -529,7 +588,7 @@ export default function AppraisalDetailPage() {
             {/* Status banner */}
             {isUnitHead && status !== 'submitted' && (
               <div className="px-4 py-2 bg-slate-800/50 border border-white/[0.06] rounded-lg text-xs text-slate-500 flex items-center gap-2">
-                <span>ℹ️</span>
+                <Info className="w-3.5 h-3.5" />
                 {status === 'draft' ? 'Waiting for employee to submit their self-assessment' : 'Review has already been submitted'}
               </div>
             )}
@@ -538,7 +597,8 @@ export default function AppraisalDetailPage() {
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                    👔 Unit Head Scoring
+                    <UsersRound className="w-4 h-4 text-accent-400" />
+                    Unit Head Scoring
                   </h3>
                   <p className="text-xs text-slate-500 mt-0.5">Score: 8=Excellent, 6=Good, 4=Improve, 2=Poor</p>
                 </div>
@@ -609,22 +669,28 @@ export default function AppraisalDetailPage() {
               )}
             </div>
 
-            {/* Admin Comment (visible to admin viewing section 2) */}
+            {/* HR comment — the admin's own review stage, not the MD's */}
             {isAdmin && (
               <div className="bg-surface-900/60 border border-white/[0.06] rounded-xl p-6">
-                <h3 className="text-sm font-bold text-white mb-3">Comment by Head, Administration</h3>
+                <h3 className="text-sm font-bold text-white mb-1 flex items-center gap-2">
+                  <Building2 className="w-4 h-4 text-accent-400" />
+                  HR / Admin Comment
+                </h3>
+                <p className="text-[11px] text-slate-500 mb-3">
+                  Completed by HR after the unit head review. The MD adds their own comments and score separately in the Management section.
+                </p>
                 <textarea
                   rows={4}
                   className="w-full px-4 py-2.5 bg-slate-800/50 border border-white/[0.06] rounded-lg text-sm text-slate-100 placeholder-slate-600 outline-none focus:border-accent-500/50 focus:ring-2 focus:ring-accent-500/20 transition-all resize-y disabled:opacity-60 disabled:cursor-not-allowed"
                   value={adminComment}
                   onChange={(e) => setAdminComment(e.target.value)}
                   disabled={!canEditAdmin}
-                  placeholder={canEditAdmin ? 'Administration comments...' : ''}
+                  placeholder={canEditAdmin ? "HR's comments on this appraisal..." : ''}
                 />
                 {canEditAdmin && (
                   <div className="mt-3">
                     <Button onClick={handleAdminSave} disabled={saving}>
-                      {saving ? 'Saving...' : 'Save Admin Comment'}
+                      {saving ? 'Saving...' : 'Save HR Comment'}
                     </Button>
                   </div>
                 )}
@@ -639,7 +705,8 @@ export default function AppraisalDetailPage() {
             {/* MD Comment */}
             <div className="bg-surface-900/60 border border-white/[0.06] rounded-xl p-6">
               <h3 className="text-sm font-bold text-white mb-1 flex items-center gap-2">
-                🏢 Managing Director&apos;s Overall Comments
+                <Building2 className="w-4 h-4 text-accent-400" />
+                Managing Director&apos;s Overall Comments
               </h3>
               <p className="text-xs text-slate-500 mb-4">Final review and comments from management</p>
 
@@ -656,7 +723,8 @@ export default function AppraisalDetailPage() {
             {/* MD Score */}
             <div className="bg-surface-900/60 border border-white/[0.06] rounded-xl p-6">
               <h3 className="text-sm font-bold text-white mb-1 flex items-center gap-2">
-                🎯 MD Performance Score
+                <Target className="w-4 h-4 text-accent-400" />
+                MD Performance Score
               </h3>
               <p className="text-xs text-slate-500 mb-4">Rate this employee&apos;s overall performance (0-100)</p>
 
@@ -697,7 +765,8 @@ export default function AppraisalDetailPage() {
             {/* Scoring breakdown & weights */}
             <div className="bg-surface-900/60 border border-white/[0.06] rounded-xl p-6">
               <h3 className="text-sm font-bold text-white mb-4 flex items-center gap-2">
-                📊 Score Breakdown & Weights
+                <BarChart3 className="w-4 h-4 text-accent-400" />
+                Score Breakdown & Weights
               </h3>
               <p className="text-xs text-slate-500 mb-4">Final score = Self Rating (30%) + Unit Head (50%) + MD Score (20%)</p>
 

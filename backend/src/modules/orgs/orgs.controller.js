@@ -1,6 +1,6 @@
 const orgsService = require('./orgs.service');
 const prisma = require('../../config/db');
-const { auditMemberInvited, auditMemberRoleChanged, auditMemberDepartmentChanged, auditMemberRemoved } = require('../auditLogs/audit');
+const { auditMemberInvited, auditMemberRoleChanged, auditMemberDepartmentChanged, auditMemberLevelChanged, auditMemberStaffTypeChanged, auditMemberRemoved } = require('../auditLogs/audit');
 
 async function createOrg(req, res) {
   try {
@@ -32,7 +32,7 @@ async function getOrg(req, res) {
 
 async function inviteToOrg(req, res) {
   try {
-    const { email, name, role, departmentId } = req.body;
+    const { email, name, role, departmentId, level, staffType } = req.body;
     if (!email) {
       return res.status(400).json({ error: 'Email is required' });
     }
@@ -43,13 +43,15 @@ async function inviteToOrg(req, res) {
       name,
       role,
       departmentId,
+      level,
+      staffType,
       inviterId: req.user.userId,
     });
 
     auditMemberInvited(member, req.user.userId).catch(() => {});
     return res.status(201).json(member);
   } catch (err) {
-    const clientErrors = ['Only admins can invite members', 'User is already a member', 'Name is required when adding a new staff member'];
+    const clientErrors = ['Only admins can invite members', 'User is already a member', 'Name is required when adding a new staff member', 'Invalid role', 'Invalid level', 'Invalid staff type'];
     if (clientErrors.includes(err.message)) {
       return res.status(400).json({ error: err.message });
     }
@@ -175,6 +177,76 @@ async function updateMemberDepartment(req, res) {
   }
 }
 
+async function updateMemberLevel(req, res) {
+  try {
+    const { level, note } = req.body;
+
+    const member = await orgsService.updateMemberLevel(
+      req.params.id,
+      req.params.memberId,
+      { level, note },
+      req.user.userId
+    );
+
+    const enriched = { ...member, orgId: req.params.id };
+    auditMemberLevelChanged(enriched, member.previousLevel, req.user.userId).catch(() => {});
+
+    return res.json(member);
+  } catch (err) {
+    const clientErrors = ['Only admins can change levels', 'Member not found', 'Invalid level', 'Member is already on that level'];
+    if (clientErrors.includes(err.message)) {
+      return res.status(400).json({ error: err.message });
+    }
+    console.error('Update level error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
+async function updateMemberStaffType(req, res) {
+  try {
+    const { staffType } = req.body;
+
+    const member = await orgsService.updateMemberStaffType(
+      req.params.id,
+      req.params.memberId,
+      staffType,
+      req.user.userId
+    );
+
+    if (member.previousStaffType !== member.staffType) {
+      const enriched = { ...member, orgId: req.params.id };
+      auditMemberStaffTypeChanged(enriched, member.previousStaffType, req.user.userId).catch(() => {});
+    }
+
+    return res.json(member);
+  } catch (err) {
+    const clientErrors = ['Only admins can change staff type', 'Member not found', 'Invalid staff type'];
+    if (clientErrors.includes(err.message)) {
+      return res.status(400).json({ error: err.message });
+    }
+    console.error('Update staff type error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
+async function getMemberLevelHistory(req, res) {
+  try {
+    const history = await orgsService.getMemberLevelHistory(
+      req.params.id,
+      req.params.memberId,
+      req.user.userId
+    );
+    return res.json(history);
+  } catch (err) {
+    const clientErrors = ['Not a member of this organisation', 'Member not found', 'You can only view your own level history'];
+    if (clientErrors.includes(err.message)) {
+      return res.status(403).json({ error: err.message });
+    }
+    console.error('Level history error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
 async function updateThemeColor(req, res) {
   try {
     const { themeColor } = req.body;
@@ -193,4 +265,4 @@ async function updateThemeColor(req, res) {
   }
 }
 
-module.exports = { createOrg, getOrg, inviteToOrg, getUserOrgs, getMembers, updateMemberRole, updateMemberDepartment, removeMember, updateThemeColor };
+module.exports = { createOrg, getOrg, inviteToOrg, getUserOrgs, getMembers, updateMemberRole, updateMemberDepartment, updateMemberLevel, updateMemberStaffType, getMemberLevelHistory, removeMember, updateThemeColor };
