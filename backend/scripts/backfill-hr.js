@@ -10,9 +10,29 @@
  * set the org up. Skips any org that already has an HR, so it is safe to
  * run more than once.
  *
+ * Run from the backend directory so the .env beside it is picked up:
+ *
  *   node scripts/backfill-hr.js            # report only
  *   node scripts/backfill-hr.js --apply    # write the changes
  */
+
+// db.js builds the Prisma client on require and nothing in it reads .env —
+// the server only gets DATABASE_URL because index.js pulls in config/env.
+// Load it here first, before the client is constructed.
+require('dotenv').config();
+
+if (!process.env.DATABASE_URL) {
+  console.error(
+    'DATABASE_URL is not set.\n\n' +
+      'Run this from the backend directory so the .env next to it is found:\n' +
+      '  cd C:\\apps\\kpi-platform\\backend; node scripts/backfill-hr.js\n\n' +
+      'If this deployment keeps its settings in web.config rather than a .env\n' +
+      'file, set the variable for this shell first:\n' +
+      '  $env:DATABASE_URL = "postgresql://user:password@localhost:5432/kpi_platform"'
+  );
+  process.exit(1);
+}
+
 const prisma = require('../src/config/db');
 
 async function main() {
