@@ -233,7 +233,10 @@ async function getAdminSummary(orgId, userId) {
   if (requester.role !== 'admin') throw new Error('Forbidden');
 
   const [org, members, appraisals, kpis, integrations, workItems, auditLogs] = await Promise.all([
-    prisma.organisation.findUnique({ where: { id: orgId }, select: { name: true } }),
+    prisma.organisation.findUnique({
+      where: { id: orgId },
+      select: { name: true, hrOfficerId: true, hrOfficer: { select: { name: true } } },
+    }),
     prisma.orgMember.findMany({
       where: { orgId },
       include: {
@@ -279,7 +282,8 @@ async function getAdminSummary(orgId, userId) {
   const byStatus = { draft: 0, submitted: 0, unit_reviewed: 0, admin_reviewed: 0, completed: 0 };
   for (const a of appraisals) if (byStatus.hasOwnProperty(a.status)) byStatus[a.status]++;
 
-  // unit_reviewed is the admin's own queue — the admin comment comes next
+  // unit_reviewed waits on the HR officer, who may not be this admin —
+  // the console used to tell every admin it was their action
   const awaitingAdminReview = appraisals
     .filter((a) => a.status === 'unit_reviewed')
     .map((a) => ({
@@ -342,6 +346,9 @@ async function getAdminSummary(orgId, userId) {
       total: appraisals.length,
       byStatus,
       awaitingAdminReview,
+      // Lets the console say whose action the HR stage is
+      hrOfficerName: org?.hrOfficer?.name || null,
+      viewerIsHrOfficer: Boolean(org?.hrOfficerId && org.hrOfficerId === userId),
     },
     kpis: {
       total: kpis.length,

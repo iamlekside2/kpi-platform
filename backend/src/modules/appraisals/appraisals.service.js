@@ -123,6 +123,34 @@ function getDeptLabel(department, orgDepartments) {
   }
 }
 
+// ── Scoring validation ──
+// Nothing checked that every attribute was scored, and a missing one is
+// read as zero: each unscored unit head attribute costs the employee
+// about 4% of their final score, with nothing on screen to say so.
+function missingScores(attrs, scores) {
+  const given = scores || {};
+  const missing = [];
+  const invalid = [];
+  for (const a of attrs) {
+    const raw = given[a.key];
+    if (raw === undefined || raw === null || raw === '') {
+      missing.push(a.label);
+      continue;
+    }
+    const n = Number(raw);
+    if (!Number.isFinite(n) || n < 0 || n > a.maxScore) invalid.push(a.label);
+  }
+  return { missing, invalid };
+}
+
+function validateSelfRatings(scores) {
+  return missingScores(SELF_RATING_ATTRIBUTES, scores);
+}
+
+function validateUnitHeadScores(scores) {
+  return missingScores(UNIT_HEAD_ATTRIBUTES, scores);
+}
+
 // ── Return form structure ──
 // orgDepartments, when passed, replaces the built-in list so an appraisal
 // can be raised against any department the org actually created. Only tech
@@ -339,6 +367,8 @@ async function deleteAppraisal(id) {
 
 module.exports = {
   getFormStructure,
+  validateSelfRatings,
+  validateUnitHeadScores,
   calculateFinalScore,
   getGrade,
   createAppraisal,

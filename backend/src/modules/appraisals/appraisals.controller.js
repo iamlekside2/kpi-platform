@@ -165,6 +165,18 @@ async function submit(req, res) {
       return res.status(400).json({ error: 'Appraisal has already been submitted' });
     }
 
+    // Submitting locks the appraisal, and anything unrated counts as zero
+    const { missing, invalid } = service.validateSelfRatings(appraisal.selfRatings);
+    if (invalid.length > 0) {
+      return res.status(400).json({ error: `Out of range: ${invalid.join(', ')}` });
+    }
+    if (missing.length > 0) {
+      return res.status(400).json({
+        error: `Rate every attribute before submitting. ${missing.length} still unrated: ${missing.join(', ')}`,
+        missing,
+      });
+    }
+
     const updated = await service.submitAppraisal(req.params.id);
     notifyAppraisalSubmitted(updated).catch(() => {});
     auditAppraisalStatusChanged(updated, 'draft', 'submitted', req.user.userId).catch(() => {});
@@ -202,6 +214,18 @@ async function updateUnitHead(req, res) {
     if (role !== 'lead' && role !== 'admin') {
       return res.status(403).json({ error: 'Only unit heads can score appraisals' });
     }
+    const scores = req.body.unitHeadScores;
+    const { missing, invalid } = service.validateUnitHeadScores(scores);
+    if (invalid.length > 0) {
+      return res.status(400).json({ error: `Out of range: ${invalid.join(', ')}` });
+    }
+    if (missing.length > 0) {
+      return res.status(400).json({
+        error: `Score every attribute before saving. ${missing.length} still unscored: ${missing.join(', ')}`,
+        missing,
+      });
+    }
+
     if (appraisal.status !== 'submitted') {
       return res.status(400).json({ error: 'Appraisal must be submitted before unit head review' });
     }

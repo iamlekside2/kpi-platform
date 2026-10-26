@@ -101,6 +101,9 @@ export default function AdminDashboard() {
 
   const { staff, appraisals, kpis, integrations, unsyncedStaff, recentActivity } = data;
   const queue = appraisals.awaitingAdminReview;
+  // The HR stage belongs to the named HR officer, who may not be this admin
+  const isHrOfficer = appraisals.viewerIsHrOfficer;
+  const hrOfficerName = appraisals.hrOfficerName;
 
   const pipelineData = Object.entries(appraisals.byStatus).map(([status, count], i) => ({
     name: STATUS_LABELS[status] || status,
@@ -126,7 +129,14 @@ export default function AdminDashboard() {
 
         {/* ── Headline stats ── */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-          <StatCard label="Awaiting Your Review" value={queue.length} sub={queue.length ? 'your action needed' : 'queue is clear'} delay={0} />
+          <StatCard
+            label={isHrOfficer ? 'Awaiting Your Review' : 'Awaiting HR'}
+            value={queue.length}
+            sub={queue.length === 0
+              ? 'queue is clear'
+              : isHrOfficer ? 'your action needed' : `with ${hrOfficerName || 'the HR officer'}`}
+            delay={0}
+          />
           <StatCard label="Staff" value={staff.total} sub={`${staff.byRole.admin} admin · ${staff.byRole.lead} lead`} delay={0.05} />
           <StatCard label="Appraisal Completion" value={`${completionPct}%`} sub={`${appraisals.byStatus.completed} of ${appraisals.total}`} delay={0.1} />
           <StatCard label="KPIs Tracked" value={kpis.total} sub={`${kpis.missingValue} with no value`} delay={0.15} />
@@ -137,11 +147,14 @@ export default function AdminDashboard() {
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-amber-500/5 border border-amber-500/20 rounded-2xl p-5 mb-6"
+            className={`border rounded-2xl p-5 mb-6 ${isHrOfficer
+              ? 'bg-amber-500/5 border-amber-500/20'
+              : 'bg-white/[0.02] border-white/[0.06]'}`}
           >
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold text-amber-300">
-                {queue.length} appraisal{queue.length > 1 ? 's' : ''} unit-reviewed and waiting on your comment
+              <h3 className={`text-sm font-semibold ${isHrOfficer ? 'text-amber-300' : 'text-slate-300'}`}>
+                {queue.length} appraisal{queue.length > 1 ? 's' : ''} unit-reviewed and waiting on{' '}
+                {isHrOfficer ? 'your comment' : `${hrOfficerName || 'the HR officer'}`}
               </h3>
               <Link to="/appraisals" className="text-xs font-semibold text-accent-400 hover:text-accent-300">
                 View all
