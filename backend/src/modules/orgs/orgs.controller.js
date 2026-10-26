@@ -1,6 +1,6 @@
 const orgsService = require('./orgs.service');
 const prisma = require('../../config/db');
-const { auditMemberInvited, auditMemberRoleChanged, auditMemberDepartmentChanged, auditMemberLevelChanged, auditMemberStaffTypeChanged, auditHrOfficerChanged, auditMemberUserUpdated, auditMemberRemoved } = require('../auditLogs/audit');
+const { auditMemberInvited, auditMemberRoleChanged, auditMemberDepartmentChanged, auditMemberLevelChanged, auditMemberStaffTypeChanged, auditHrOfficerChanged, auditMemberUserUpdated, auditMemberPasswordReset, auditMemberRemoved } = require('../auditLogs/audit');
 
 async function createOrg(req, res) {
   try {
@@ -264,6 +264,29 @@ async function updateMemberUser(req, res) {
   }
 }
 
+async function resetMemberPassword(req, res) {
+  try {
+    const result = await orgsService.resetMemberPassword(
+      req.params.id,
+      req.params.memberId,
+      req.user.userId
+    );
+    auditMemberPasswordReset(req.params.id, result, req.user.userId).catch(() => {});
+    return res.json(result);
+  } catch (err) {
+    const clientErrors = [
+      'Only admins can reset passwords',
+      'Member not found',
+      'Change your own password from Settings',
+    ];
+    if (clientErrors.includes(err.message)) {
+      return res.status(400).json({ error: err.message });
+    }
+    console.error('Reset password error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
 async function setHrOfficer(req, res) {
   try {
     const { userId } = req.body;
@@ -328,4 +351,4 @@ async function updateThemeColor(req, res) {
   }
 }
 
-module.exports = { createOrg, getOrg, inviteToOrg, getUserOrgs, getMembers, updateMemberRole, updateMemberDepartment, updateMemberLevel, updateMemberStaffType, updateMemberUser, setHrOfficer, getMemberLevelHistory, removeMember, updateThemeColor };
+module.exports = { createOrg, getOrg, inviteToOrg, getUserOrgs, getMembers, updateMemberRole, updateMemberDepartment, updateMemberLevel, updateMemberStaffType, updateMemberUser, resetMemberPassword, setHrOfficer, getMemberLevelHistory, removeMember, updateThemeColor };

@@ -1,6 +1,6 @@
 const prisma = require('../../config/db');
 const bcrypt = require('bcryptjs');
-const { sendStaffInviteEmail } = require('../../utils/mailer');
+const { sendStaffInviteEmail, sendAdminPasswordResetEmail } = require('../../utils/mailer');
 const { seedDefaultDepartments } = require('../departments/departments.service');
 
 const SALT_ROUNDS = 12;
@@ -398,6 +398,57 @@ async function updateMemberUser(orgId, memberId, { name, email, integrationEmail
   };
 }
 
+// ── Reset a member's password ──
+// For the common case of someone locked out who cannot receive the
+// self-service reset mail. Returns the temporary password once so the admin
+// can pass it on by hand; it is also emailed to the person.
+function generateTempPassword() {
+  // No look-alike characters — this gets read aloud and retyped
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
+  let out = '';
+  for (let i = 0; i < 10; i += 1) {
+    out += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return `Kpi-${out}`;
+}
+
+async function resetMemberPassword(orgId, memberId, requesterId) {
+  const requester = await prisma.orgMember.findUnique({
+    where: { userId_orgId: { userId: requesterId, orgId } },
+    include: { user: { select: { name: true } } },
+  });
+  if (!requester || requester.role !== 'admin') {
+    throw new Error('Only admins can reset passwords');
+  }
+
+  const target = await prisma.orgMember.findUnique({
+    where: { id: memberId },
+    include: { user: { select: { id: true, name: true, email: true } } },
+  });
+  if (!target || target.orgId !== orgId) throw new Error('Member not found');
+  if (target.userId === requesterId) {
+    throw new Error('Change your own password from Settings');
+  }
+
+  const tempPassword = generateTempPassword();
+  const hashed = await bcrypt.hash(tempPassword, SALT_ROUNDS);
+  await prisma.user.update({ where: { id: target.userId }, data: { password: hashed } });
+
+  sendAdminPasswordResetEmail({
+    email: target.user.email,
+    name: target.user.name,
+    tempPassword,
+    adminName: requester.user?.name || 'An administrator',
+  }).catch(() => {});
+
+  return {
+    memberId: target.id,
+    name: target.user.name,
+    email: target.user.email,
+    tempPassword,
+  };
+}
+
 // ── Name the HR officer ──
 // Exactly one per org by construction: setting it replaces whoever held it.
 async function setHrOfficer(orgId, userId, requesterId) {
@@ -557,6 +608,7 @@ module.exports = {
   updateMemberStaffType,
   setHrOfficer,
   updateMemberUser,
+  resetMemberPassword,
   getMemberLevelHistory,
   removeMember,
   updateThemeColor,

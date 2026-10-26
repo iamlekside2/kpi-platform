@@ -237,11 +237,36 @@ function sendAppraisalEmail({ email, name, subject, heading, body, ctaLabel, app
   });
 }
 
+function sendAdminPasswordResetEmail({ email, name, tempPassword, adminName }) {
+  const loginUrl = `${getFrontendUrl()}/login`;
+  return sendEmail({
+    to: email,
+    subject: 'Your password has been reset - KPI Platform',
+    html: `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 520px; margin: 0 auto; background: #f8fafc; padding: 32px; border-radius: 12px;">
+        <div style="background: #4f46e5; padding: 24px; border-radius: 10px 10px 0 0; text-align: center;">
+          <h1 style="color: white; margin: 0; font-size: 22px;">Password Reset</h1>
+        </div>
+        <div style="background: white; padding: 28px; border-radius: 0 0 10px 10px; border: 1px solid #e2e8f0; border-top: none;">
+          <p style="color: #334155; font-size: 15px; line-height: 1.6;">Hi <strong>${name}</strong>,</p>
+          <p style="color: #334155; font-size: 15px; line-height: 1.6;"><strong>${adminName}</strong> has reset your password. Sign in with the temporary password below and change it straight away.</p>
+          <p style="color: #334155; font-size: 15px; line-height: 1.6; background: #fef3c7; padding: 12px 16px; border-radius: 8px; border: 1px solid #fbbf24;">Temporary password: <strong>${tempPassword}</strong></p>
+          <div style="text-align: center; margin: 24px 0;">
+            <a href="${loginUrl}" style="display: inline-block; padding: 12px 32px; background: #4f46e5; color: white; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px;">Sign In</a>
+          </div>
+          <p style="color: #ef4444; font-size: 13px; margin-top: 16px;">If you did not expect this, contact your administrator.</p>
+        </div>
+      </div>
+    `,
+  });
+}
+
 module.exports = {
   sendEmail,
   sendWelcomeEmail,
   sendStaffInviteEmail,
   sendPasswordResetEmail,
   sendPasswordChangedEmail,
+  sendAdminPasswordResetEmail,
   sendAppraisalEmail,
 };

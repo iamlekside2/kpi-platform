@@ -210,6 +210,17 @@ async function auditMemberUserUpdated(orgId, result, userId) {
   });
 }
 
+async function auditMemberPasswordReset(orgId, result, userId) {
+  await createAuditLog({
+    userId,
+    orgId,
+    action: 'update',
+    entityType: 'OrgMember',
+    entityId: result.memberId,
+    description: `Reset ${result.name}'s password`,
+  });
+}
+
 async function auditMemberRemoved(member, userId) {
   const name = member.user?.name || member.user?.email || member.userId;
   await createAuditLog({
@@ -238,5 +249,6 @@ module.exports = {
   auditMemberStaffTypeChanged,
   auditHrOfficerChanged,
   auditMemberUserUpdated,
+  auditMemberPasswordReset,
   auditMemberRemoved,
 };

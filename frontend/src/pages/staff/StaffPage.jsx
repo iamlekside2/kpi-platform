@@ -9,7 +9,7 @@ import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import {
   ShieldCheck, UsersRound, Briefcase, Landmark, User,
-  Building2, Trash2, Plus, X, BadgeCheck, Search, History, ChevronDown, Pencil,
+  Building2, Trash2, Plus, X, BadgeCheck, Search, History, ChevronDown, Pencil, KeyRound, Copy,
 } from 'lucide-react';
 
 const ROLE_CONFIG = {
@@ -73,6 +73,7 @@ export default function StaffPage() {
   const [editUser, setEditUser] = useState(null); // the member whose details are open
   const [editForm, setEditForm] = useState({ name: '', email: '', integrationEmail: '' });
   const [savingUser, setSavingUser] = useState(false);
+  const [resetResult, setResetResult] = useState(null); // { name, email, tempPassword }
   const [showDepts, setShowDepts] = useState(false);
   const [showRoleHelp, setShowRoleHelp] = useState(false);
   const [newDeptName, setNewDeptName] = useState('');
@@ -221,6 +222,22 @@ export default function StaffPage() {
       toast.error(err.response?.data?.error || 'Failed to update staff details');
     } finally {
       setSavingUser(false);
+    }
+  }
+
+  async function handleResetPassword(member) {
+    const ok = await toast.confirm({
+      title: `Reset ${member.name}'s password?`,
+      message: 'Their current password stops working immediately. A temporary one is emailed to them and shown to you once.',
+      confirmLabel: 'Reset password',
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      const { data } = await api.post(`/orgs/${activeOrg.id}/members/${member.id}/reset-password`);
+      setResetResult(data);
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to reset password');
     }
   }
 
@@ -663,6 +680,13 @@ export default function StaffPage() {
                             {isAdmin && (
                               <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
                                 <button
+                                  onClick={() => handleResetPassword(m)}
+                                  className="p-1.5 rounded-lg text-slate-500 hover:text-amber-400 hover:bg-white/[0.06] transition-all cursor-pointer"
+                                  title="Reset password"
+                                >
+                                  <KeyRound className="w-3.5 h-3.5" />
+                                </button>
+                                <button
                                   onClick={() => openEditUser(m)}
                                   className="p-1.5 rounded-lg text-slate-500 hover:text-slate-200 hover:bg-white/[0.06] transition-all cursor-pointer"
                                   title="Edit name and email"
@@ -784,6 +808,53 @@ export default function StaffPage() {
             )}
           </AnimatePresence>
         </div>
+
+        {/* ── Temporary password, shown once ── */}
+        <AnimatePresence>
+          {resetResult && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+              onClick={() => setResetResult(null)}
+            >
+              <motion.div
+                initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 20, scale: 0.95 }}
+                className="bg-surface-900 border border-white/[0.06] rounded-2xl p-6 w-full max-w-md shadow-2xl"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <h3 className="text-lg font-bold text-white mb-1">Password reset</h3>
+                <p className="text-xs text-slate-500 mb-4">
+                  {resetResult.name} has been emailed this temporary password at {resetResult.email}.
+                  It is shown here once so you can pass it on directly.
+                </p>
+
+                <div className="flex items-center gap-2 px-3 py-2.5 bg-slate-800/60 border border-white/[0.08] rounded-lg mb-3">
+                  <code className="flex-1 text-sm font-mono text-accent-300 break-all">{resetResult.tempPassword}</code>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard?.writeText(resetResult.tempPassword);
+                      toast.success('Copied');
+                    }}
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/[0.06] transition-all cursor-pointer shrink-0"
+                    title="Copy"
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+
+                <p className="text-[11px] text-amber-300/80 mb-4">
+                  Closing this hides it for good. Ask them to change it after signing in.
+                </p>
+
+                <Button onClick={() => setResetResult(null)} fullWidth>Done</Button>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* ── Edit staff details ── */}
         <AnimatePresence>
