@@ -1,6 +1,6 @@
 const orgsService = require('./orgs.service');
 const prisma = require('../../config/db');
-const { auditMemberInvited, auditMemberRoleChanged, auditMemberDepartmentChanged, auditMemberLevelChanged, auditMemberStaffTypeChanged, auditMemberRemoved } = require('../auditLogs/audit');
+const { auditMemberInvited, auditMemberRoleChanged, auditMemberDepartmentChanged, auditMemberLevelChanged, auditMemberStaffTypeChanged, auditHrOfficerChanged, auditMemberRemoved } = require('../auditLogs/audit');
 
 async function createOrg(req, res) {
   try {
@@ -232,6 +232,34 @@ async function updateMemberStaffType(req, res) {
   }
 }
 
+async function setHrOfficer(req, res) {
+  try {
+    const { userId } = req.body;
+    const result = await orgsService.setHrOfficer(
+      req.params.id,
+      userId || null,
+      req.user.userId
+    );
+
+    if (result.previousHrOfficerId !== result.hrOfficerId) {
+      auditHrOfficerChanged(req.params.id, result, req.user.userId).catch(() => {});
+    }
+
+    return res.json(result);
+  } catch (err) {
+    const clientErrors = [
+      'Only admins can name the HR officer',
+      'Organisation not found',
+      'That person is not a member of this organisation',
+    ];
+    if (clientErrors.includes(err.message)) {
+      return res.status(400).json({ error: err.message });
+    }
+    console.error('Set HR officer error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
 async function getMemberLevelHistory(req, res) {
   try {
     const history = await orgsService.getMemberLevelHistory(
@@ -268,4 +296,4 @@ async function updateThemeColor(req, res) {
   }
 }
 
-module.exports = { createOrg, getOrg, inviteToOrg, getUserOrgs, getMembers, updateMemberRole, updateMemberDepartment, updateMemberLevel, updateMemberStaffType, getMemberLevelHistory, removeMember, updateThemeColor };
+module.exports = { createOrg, getOrg, inviteToOrg, getUserOrgs, getMembers, updateMemberRole, updateMemberDepartment, updateMemberLevel, updateMemberStaffType, setHrOfficer, getMemberLevelHistory, removeMember, updateThemeColor };

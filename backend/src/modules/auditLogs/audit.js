@@ -174,6 +174,21 @@ async function auditMemberStaffTypeChanged(member, oldStaffType, userId) {
   });
 }
 
+async function auditHrOfficerChanged(orgId, result, userId) {
+  await createAuditLog({
+    userId,
+    orgId,
+    action: 'update',
+    entityType: 'Organisation',
+    entityId: orgId,
+    description: result.hrOfficerName
+      ? `Named ${result.hrOfficerName} as HR officer`
+      : 'Cleared the HR officer',
+    oldValues: { hrOfficerId: result.previousHrOfficerId },
+    newValues: { hrOfficerId: result.hrOfficerId },
+  });
+}
+
 async function auditMemberRemoved(member, userId) {
   const name = member.user?.name || member.user?.email || member.userId;
   await createAuditLog({
@@ -200,5 +215,6 @@ module.exports = {
   auditMemberDepartmentChanged,
   auditMemberLevelChanged,
   auditMemberStaffTypeChanged,
+  auditHrOfficerChanged,
   auditMemberRemoved,
 };

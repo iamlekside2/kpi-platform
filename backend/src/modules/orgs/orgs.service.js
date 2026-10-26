@@ -33,6 +33,8 @@ async function createOrg({ name, userId }) {
   const org = await prisma.organisation.create({
     data: {
       name,
+      // The founder signs off appraisals until they hand the job over
+      hrOfficerId: userId,
       members: {
         create: {
           role: 'admin',
@@ -169,6 +171,7 @@ async function getUserOrgs(userId) {
         include: {
           _count: { select: { members: true, kpis: true } },
           members: { where: { role: 'md' }, select: { id: true } },
+          hrOfficer: { select: { id: true, name: true } },
         },
       },
     },
@@ -180,9 +183,11 @@ async function getUserOrgs(userId) {
 
   return memberships.map((m) => {
     // eslint-disable-next-line no-unused-vars
-    const { members, ...org } = m.org;
+    const { members, hrOfficer, ...org } = m.org;
     return {
       ...org,
+      hrOfficerId: hrOfficer?.id || null,
+      hrOfficerName: hrOfficer?.name || null,
       role: m.role,
       // Lets the UI offer the MD section to an admin only where no MD exists
       hasMd: members.length > 0,
@@ -199,6 +204,11 @@ async function getOrgMembers(orgId, requesterId) {
     where: { userId_orgId: { userId: requesterId, orgId } },
   });
   if (!membership) throw new Error('Not a member of this organisation');
+
+  const org = await prisma.organisation.findUnique({
+    where: { id: orgId },
+    select: { hrOfficerId: true },
+  });
 
   const members = await prisma.orgMember.findMany({
     where: { orgId },
@@ -217,6 +227,7 @@ async function getOrgMembers(orgId, requesterId) {
   return members.map((m) => ({
     id: m.id,
     role: m.role,
+    isHrOfficer: m.userId === org?.hrOfficerId,
     level: m.level,
     staffType: m.staffType,
     lastLevelChange: m.levelChanges[0] || null,
@@ -321,6 +332,43 @@ async function updateMemberLevel(orgId, memberId, { level, note = '' }, requeste
     name: updated.user.name,
     email: updated.user.email,
     previousLevel: target.level,
+  };
+}
+
+// ── Name the HR officer ──
+// Exactly one per org by construction: setting it replaces whoever held it.
+async function setHrOfficer(orgId, userId, requesterId) {
+  const requester = await prisma.orgMember.findUnique({
+    where: { userId_orgId: { userId: requesterId, orgId } },
+  });
+  if (!requester || requester.role !== 'admin') {
+    throw new Error('Only admins can name the HR officer');
+  }
+
+  const org = await prisma.organisation.findUnique({
+    where: { id: orgId },
+    select: { hrOfficerId: true },
+  });
+  if (!org) throw new Error('Organisation not found');
+
+  if (userId !== null) {
+    const target = await prisma.orgMember.findUnique({
+      where: { userId_orgId: { userId, orgId } },
+      include: { user: { select: { name: true } } },
+    });
+    if (!target) throw new Error('That person is not a member of this organisation');
+  }
+
+  const updated = await prisma.organisation.update({
+    where: { id: orgId },
+    data: { hrOfficerId: userId },
+    include: { hrOfficer: { select: { id: true, name: true } } },
+  });
+
+  return {
+    hrOfficerId: updated.hrOfficer?.id || null,
+    hrOfficerName: updated.hrOfficer?.name || null,
+    previousHrOfficerId: org.hrOfficerId,
   };
 }
 
@@ -444,6 +492,7 @@ module.exports = {
   updateMemberDepartment,
   updateMemberLevel,
   updateMemberStaffType,
+  setHrOfficer,
   getMemberLevelHistory,
   removeMember,
   updateThemeColor,

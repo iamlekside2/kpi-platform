@@ -20,6 +20,7 @@ model User {
   auditLogs           AuditLog[]
   memberWorkItems     MemberWorkItems[]
   levelChangesMade    LevelChange[]      @relation("LevelChangedBy")
+  hrOfficerFor        Organisation[]     @relation("OrgHrOfficer")
   createdAt           DateTime           @default(now())
 }
 
@@ -38,6 +39,11 @@ model Organisation {
   auditLogs       AuditLog[]
   memberWorkItems MemberWorkItems[]
   levelChanges    LevelChange[]
+  // The one person who signs off the HR comment on appraisals. Not a role
+  // and not the HR department — a single named officer per organisation,
+  // so no amount of admin or department membership confers it.
+  hrOfficer       User?          @relation("OrgHrOfficer", fields: [hrOfficerId], references: [id])
+  hrOfficerId     String?
   createdAt       DateTime       @default(now())
 }
 

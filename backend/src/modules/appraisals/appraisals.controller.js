@@ -11,9 +11,16 @@ async function getUserRole(userId, orgId) {
   return member?.role || null;
 }
 
-// HR is a department, not a permission. The comment stage is an
-// administrative one, so it is gated on the admin role like every other
-// admin capability; who actually sits in HR is visible on the staff list.
+// Only the org's named HR officer signs off the HR comment. Not every
+// admin, and not everyone in the HR department — one person, set on the
+// organisation. Admins can still read the section.
+async function isHrOfficer(userId, orgId) {
+  const org = await prisma.organisation.findUnique({
+    where: { id: orgId },
+    select: { hrOfficerId: true },
+  });
+  return Boolean(org?.hrOfficerId && org.hrOfficerId === userId);
+}
 
 // GET /appraisals/form-structure?department=tech&orgId=...
 // orgId is optional; with it the selectable departments and the section
@@ -186,9 +193,8 @@ async function updateAdmin(req, res) {
     const appraisal = await service.getAppraisalById(req.params.id);
     if (!appraisal) return res.status(404).json({ error: 'Appraisal not found' });
 
-    const role = await getUserRole(req.user.userId, appraisal.orgId);
-    if (role !== 'admin') {
-      return res.status(403).json({ error: 'Only an administrator can add the HR comment' });
+    if (!(await isHrOfficer(req.user.userId, appraisal.orgId))) {
+      return res.status(403).json({ error: 'Only the named HR officer can add the HR comment' });
     }
     if (appraisal.status !== 'unit_reviewed' && appraisal.status !== 'admin_reviewed') {
       return res.status(400).json({ error: 'Appraisal must be unit-head reviewed first' });

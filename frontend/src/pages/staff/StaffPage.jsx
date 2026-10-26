@@ -8,7 +8,7 @@ import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import {
   ShieldCheck, UsersRound, Briefcase, Landmark, User,
-  Building2, TrendingUp, Pencil, Trash2, Plus, X,
+  Building2, TrendingUp, Pencil, Trash2, Plus, X, BadgeCheck,
 } from 'lucide-react';
 
 const ROLE_CONFIG = {
@@ -170,6 +170,25 @@ export default function StaffPage() {
       toast.success(`${data.name} is now ${STAFF_TYPE_CONFIG[data.staffType].label.toLowerCase()} staff`);
     } catch (err) {
       toast.error(err.response?.data?.error || 'Failed to update staff type');
+    }
+  }
+
+  async function handleSetHrOfficer(member) {
+    const ok = await toast.confirm({
+      title: `Make ${member.name} the HR officer?`,
+      message: activeOrg?.hrOfficerName && activeOrg.hrOfficerName !== member.name
+        ? `${activeOrg.hrOfficerName} will stop being able to write the HR comment on appraisals.`
+        : 'They become the only person who can write the HR comment on appraisals.',
+      confirmLabel: 'Make HR officer',
+    });
+    if (!ok) return;
+    try {
+      await api.patch(`/orgs/${activeOrg.id}/hr-officer`, { userId: member.userId });
+      setMembers(members.map((m) => ({ ...m, isHrOfficer: m.id === member.id })));
+      loadOrgRole(); // activeOrg carries hrOfficerId, which gates the comment
+      toast.success(`${member.name} is now the HR officer`);
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to set the HR officer');
     }
   }
 
@@ -589,6 +608,12 @@ export default function StaffPage() {
                         <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full border ${(STAFF_TYPE_CONFIG[m.staffType] || STAFF_TYPE_CONFIG.permanent).color}`}>
                           {(STAFF_TYPE_CONFIG[m.staffType] || STAFF_TYPE_CONFIG.permanent).label}
                         </span>
+                        {m.isHrOfficer && (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border bg-teal-500/10 text-teal-300 border-teal-500/20">
+                            <BadgeCheck className="w-3 h-3" />
+                            HR Officer
+                          </span>
+                        )}
                       </div>
                       <div className="text-xs text-slate-500">{m.email}</div>
                     </div>
@@ -691,6 +716,15 @@ export default function StaffPage() {
                             >
                               <Pencil className="w-3.5 h-3.5" />
                             </button>
+                            {!m.isHrOfficer && (
+                              <button
+                                onClick={() => handleSetHrOfficer(m)}
+                                className="p-1.5 rounded-lg text-slate-500 hover:text-teal-400 hover:bg-white/[0.06] transition-all cursor-pointer"
+                                title="Make HR officer"
+                              >
+                                <BadgeCheck className="w-3.5 h-3.5" />
+                              </button>
+                            )}
                             <button
                               onClick={() => handleRemove(m.id, m.name)}
                               className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-all cursor-pointer"
