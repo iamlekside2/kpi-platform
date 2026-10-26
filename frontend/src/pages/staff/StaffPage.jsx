@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Fragment } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../../services/api';
@@ -9,7 +9,7 @@ import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import {
   ShieldCheck, UsersRound, Briefcase, Landmark, User,
-  Building2, TrendingUp, Pencil, Trash2, Plus, X, BadgeCheck,
+  Building2, Trash2, Plus, X, BadgeCheck, Search, History, ChevronDown,
 } from 'lucide-react';
 
 const ROLE_CONFIG = {
@@ -19,6 +19,8 @@ const ROLE_CONFIG = {
   chairman: { label: 'Chairman', color: 'bg-rose-500/10 text-rose-400 border-rose-500/20', Icon: Landmark, description: 'View-only access to everything: dashboards, KPIs, appraisals, staff, audit log' },
   member: { label: 'Employee', color: 'bg-slate-500/10 text-slate-400 border-slate-500/20', Icon: User, description: 'Can fill self-assessment and view own appraisals' },
 };
+
+const ROLE_ORDER = ['admin', 'lead', 'md', 'chairman', 'member'];
 
 // Grade levels: 1 is the entry band. The backend accepts up to 20, the picker
 // offers the range the org actually uses.
@@ -39,6 +41,13 @@ function getDeptColor(slug) {
   return DEPT_COLORS[slug] || 'bg-accent-500/10 text-accent-400 border-accent-500/20';
 }
 
+function initials(name) {
+  return name.split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0].toUpperCase()).join('');
+}
+
+const selectClass =
+  'px-2 py-1 bg-slate-800 border border-white/[0.08] rounded-lg text-[11px] text-slate-200 outline-none focus:border-accent-500/50 cursor-pointer';
+
 export default function StaffPage() {
   const { activeOrg, orgRole, loadOrgRole } = useAuth();
   const toast = useToast();
@@ -53,19 +62,21 @@ export default function StaffPage() {
   const [inviting, setInviting] = useState(false);
   const [inviteLevel, setInviteLevel] = useState('');
   const [inviteStaffType, setInviteStaffType] = useState('permanent');
-  const [editingMember, setEditingMember] = useState(null);
-  const [editingDept, setEditingDept] = useState(null);
-  const [editingLevel, setEditingLevel] = useState(null);
+  // One cell at a time is editable: { id, field }
+  const [editing, setEditing] = useState(null);
   const [historyFor, setHistoryFor] = useState(null);
   const [levelHistory, setLevelHistory] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [search, setSearch] = useState('');
   const [filterDept, setFilterDept] = useState('all');
   const [filterStaffType, setFilterStaffType] = useState('all');
   const [showDepts, setShowDepts] = useState(false);
+  const [showRoleHelp, setShowRoleHelp] = useState(false);
   const [newDeptName, setNewDeptName] = useState('');
   const [savingDept, setSavingDept] = useState(false);
 
   const isAdmin = orgRole === 'admin';
+  const isEditing = (id, field) => editing?.id === id && editing?.field === field;
 
   useEffect(() => {
     if (!activeOrg) loadOrgRole();
@@ -131,7 +142,7 @@ export default function StaffPage() {
     try {
       await api.patch(`/orgs/${activeOrg.id}/members/${memberId}`, { role: newRole });
       setMembers(members.map((m) => m.id === memberId ? { ...m, role: newRole } : m));
-      setEditingMember(null);
+      setEditing(null);
       loadOrgRole();
       toast.success('Role updated');
     } catch (err) {
@@ -143,7 +154,7 @@ export default function StaffPage() {
     try {
       const { data } = await api.patch(`/orgs/${activeOrg.id}/members/${memberId}/department`, { departmentId: departmentId || null });
       setMembers(members.map((m) => m.id === memberId ? { ...m, department: data.department } : m));
-      setEditingDept(null);
+      setEditing(null);
       toast.success('Department updated');
     } catch (err) {
       toast.error(err.response?.data?.error || 'Failed to update department');
@@ -156,7 +167,7 @@ export default function StaffPage() {
       setMembers(members.map((m) => m.id === memberId
         ? { ...m, level: data.level, lastLevelChange: { fromLevel: data.previousLevel, toLevel: data.level, createdAt: new Date().toISOString() } }
         : m));
-      setEditingLevel(null);
+      setEditing(null);
       const from = data.previousLevel ? `Level ${data.previousLevel}` : 'no level';
       toast.success(`${data.name}: ${from} → Level ${data.level}`);
     } catch (err) {
@@ -168,6 +179,7 @@ export default function StaffPage() {
     try {
       const { data } = await api.patch(`/orgs/${activeOrg.id}/members/${memberId}/staff-type`, { staffType });
       setMembers(members.map((m) => m.id === memberId ? { ...m, staffType: data.staffType } : m));
+      setEditing(null);
       toast.success(`${data.name} is now ${STAFF_TYPE_CONFIG[data.staffType].label.toLowerCase()} staff`);
     } catch (err) {
       toast.error(err.response?.data?.error || 'Failed to update staff type');
@@ -266,190 +278,476 @@ export default function StaffPage() {
     }
   }
 
-  const byDept = filterDept === 'all'
-    ? members
-    : filterDept === 'unassigned'
-      ? members.filter((m) => !m.department)
-      : members.filter((m) => m.department?.id === filterDept);
-
-  const filteredMembers = filterStaffType === 'all'
-    ? byDept
-    : byDept.filter((m) => (m.staffType || 'permanent') === filterStaffType);
+  // ── Filtering ──
+  const term = search.trim().toLowerCase();
+  const filteredMembers = members.filter((m) => {
+    if (term && !m.name.toLowerCase().includes(term) && !m.email.toLowerCase().includes(term)) return false;
+    if (filterDept === 'unassigned' && m.department) return false;
+    if (filterDept !== 'all' && filterDept !== 'unassigned' && m.department?.id !== filterDept) return false;
+    if (filterStaffType !== 'all' && (m.staffType || 'permanent') !== filterStaffType) return false;
+    return true;
+  });
 
   const contractCount = members.filter((m) => m.staffType === 'contract').length;
+  const unassignedCount = members.filter((m) => !m.department).length;
+  const filtersActive = Boolean(term) || filterDept !== 'all' || filterStaffType !== 'all';
 
   if (!activeOrg) {
     return (
       <PageWrapper>
-        <div className="text-center py-20 text-slate-400">No organization found. Please set up your organization first.</div>
+        <div className="flex items-center justify-center py-20">
+          <div className="w-8 h-8 border-2 border-accent-500 border-t-transparent rounded-full animate-spin" />
+        </div>
       </PageWrapper>
     );
   }
 
   return (
     <PageWrapper>
-      <div className="max-w-4xl">
-        <div className="flex items-center justify-between mb-6">
+      <div>
+        {/* ── Header ── */}
+        <div className="flex items-start justify-between gap-4 flex-wrap mb-5">
           <div>
-            <h2 className="text-2xl font-bold text-white">Staff Management</h2>
+            <h2 className="text-2xl font-bold text-white">Staff</h2>
             <p className="text-sm text-slate-400 mt-1">
-              {activeOrg.name} &middot; {members.length} member{members.length !== 1 ? 's' : ''}
+              {activeOrg.name} · {members.length} {members.length === 1 ? 'person' : 'people'}
+              {contractCount > 0 && ` · ${contractCount} on contract`}
+              {activeOrg.hrOfficerName && ` · HR officer: ${activeOrg.hrOfficerName}`}
             </p>
           </div>
           {isAdmin && (
             <div className="flex gap-2">
-              <Button variant="outline" onClick={() => setShowDepts(!showDepts)}>
-                Manage Departments
+              <Button variant="outline" onClick={() => setShowDepts(!showDepts)}>Departments</Button>
+              <Button onClick={() => setShowInvite(true)}>
+                <span className="flex items-center gap-1.5">
+                  <Plus className="w-3.5 h-3.5" />
+                  Add Staff
+                </span>
               </Button>
-              <Button onClick={() => setShowInvite(true)}>+ Add Staff</Button>
             </div>
           )}
         </div>
 
-        {/* Department manager — HR, Marketing, Support etc. are job functions,
-            created here and assigned to staff; they are not permissions. */}
-        {isAdmin && showDepts && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            className="mb-6 p-4 bg-surface-900/60 border border-white/[0.06] rounded-xl overflow-hidden"
-          >
-            <h3 className="text-sm font-semibold text-white mb-1">Departments</h3>
-            <p className="text-[11px] text-slate-500 mb-3">
-              Add the functions your organisation actually has — HR, Marketing, Support, Finance. Assigning
-              someone to HR does not give them permissions, and making someone an Administrator does not make them HR.
-            </p>
-
-            <form onSubmit={handleCreateDept} className="flex gap-2 mb-3">
-              <input
-                type="text"
-                value={newDeptName}
-                onChange={(e) => setNewDeptName(e.target.value)}
-                placeholder="e.g. Human Resources"
-                className="flex-1 px-3 py-2 bg-slate-800/50 border border-white/[0.06] rounded-lg text-sm text-slate-100 placeholder-slate-600 outline-none focus:border-accent-500/50 transition-all"
-              />
-              <Button type="submit" variant="secondary" disabled={savingDept || !newDeptName.trim()}>
-                <span className="flex items-center gap-1">
-                  <Plus className="w-3.5 h-3.5" />
-                  {savingDept ? 'Adding...' : 'Add'}
-                </span>
-              </Button>
-            </form>
-
-            <div className="flex flex-wrap gap-2">
-              {departments.map((d) => {
-                const count = members.filter((m) => m.department?.id === d.id).length;
-                return (
-                  <span
-                    key={d.id}
-                    className={`inline-flex items-center gap-2 text-[11px] font-medium px-2.5 py-1 rounded-full border ${getDeptColor(d.slug)}`}
-                  >
-                    {d.name}
-                    <span className="text-slate-500">{count}</span>
-                    <button
-                      onClick={() => handleDeleteDept(d)}
-                      className="text-slate-500 hover:text-red-400 transition-colors cursor-pointer"
-                      title={`Delete ${d.name}`}
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
-                  </span>
-                );
-              })}
-              {departments.length === 0 && (
-                <span className="text-[11px] text-slate-500">No departments yet.</span>
-              )}
-            </div>
-          </motion.div>
-        )}
-
-        {/* Department filter tabs */}
-        {departments.length > 0 && (
-          <div className="flex gap-1 p-1 bg-surface-900/60 border border-white/[0.06] rounded-xl mb-6 overflow-x-auto">
-            <button
-              onClick={() => setFilterDept('all')}
-              className={`px-4 py-2 rounded-lg text-xs font-medium transition-all whitespace-nowrap cursor-pointer
-                ${filterDept === 'all'
-                  ? 'bg-accent-500/15 text-accent-400 shadow-sm'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]'}`}
+        {/* ── Department manager ── */}
+        <AnimatePresence>
+          {isAdmin && showDepts && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="overflow-hidden"
             >
-              All ({members.length})
+              <div className="mb-5 p-4 bg-surface-900/60 border border-white/[0.06] rounded-xl">
+                <h3 className="text-sm font-semibold text-white mb-1">Departments</h3>
+                <p className="text-[11px] text-slate-500 mb-3">
+                  The functions your organisation has — HR, Marketing, Support, Finance. A department says where
+                  someone works; it grants no permissions, and making someone an Administrator does not place them in one.
+                </p>
+
+                <form onSubmit={handleCreateDept} className="flex gap-2 mb-3">
+                  <input
+                    type="text"
+                    value={newDeptName}
+                    onChange={(e) => setNewDeptName(e.target.value)}
+                    placeholder="e.g. Finance"
+                    className="flex-1 px-3 py-2 bg-slate-800/50 border border-white/[0.06] rounded-lg text-sm text-slate-100 placeholder-slate-600 outline-none focus:border-accent-500/50 transition-all"
+                  />
+                  <Button type="submit" variant="secondary" disabled={savingDept || !newDeptName.trim()}>
+                    {savingDept ? 'Adding...' : 'Add'}
+                  </Button>
+                </form>
+
+                <div className="flex flex-wrap gap-2">
+                  {departments.map((d) => {
+                    const count = members.filter((m) => m.department?.id === d.id).length;
+                    return (
+                      <span
+                        key={d.id}
+                        className={`inline-flex items-center gap-2 text-[11px] font-medium px-2.5 py-1 rounded-full border ${getDeptColor(d.slug)}`}
+                      >
+                        {d.name}
+                        <span className="text-slate-500">{count}</span>
+                        <button
+                          onClick={() => handleDeleteDept(d)}
+                          className="text-slate-500 hover:text-red-400 transition-colors cursor-pointer"
+                          title={`Delete ${d.name}`}
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </span>
+                    );
+                  })}
+                  {departments.length === 0 && (
+                    <span className="text-[11px] text-slate-500">No departments yet.</span>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* ── Toolbar ── */}
+        <div className="flex flex-wrap items-center gap-2 mb-4">
+          <div className="relative flex-1 min-w-[200px]">
+            <Search className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search name or email"
+              className="w-full pl-9 pr-3 py-2 bg-surface-900/60 border border-white/[0.06] rounded-lg text-sm text-slate-100 placeholder-slate-600 outline-none focus:border-accent-500/40 transition-all"
+            />
+          </div>
+
+          <select
+            value={filterDept}
+            onChange={(e) => setFilterDept(e.target.value)}
+            className="px-3 py-2 bg-surface-900/60 border border-white/[0.06] rounded-lg text-sm text-slate-300 outline-none focus:border-accent-500/40 cursor-pointer"
+          >
+            <option value="all" className="bg-slate-800">All departments ({members.length})</option>
+            {departments.map((d) => (
+              <option key={d.id} value={d.id} className="bg-slate-800">
+                {d.name} ({members.filter((m) => m.department?.id === d.id).length})
+              </option>
+            ))}
+            {unassignedCount > 0 && (
+              <option value="unassigned" className="bg-slate-800">Unassigned ({unassignedCount})</option>
+            )}
+          </select>
+
+          <select
+            value={filterStaffType}
+            onChange={(e) => setFilterStaffType(e.target.value)}
+            className="px-3 py-2 bg-surface-900/60 border border-white/[0.06] rounded-lg text-sm text-slate-300 outline-none focus:border-accent-500/40 cursor-pointer"
+          >
+            <option value="all" className="bg-slate-800">All employment</option>
+            <option value="permanent" className="bg-slate-800">Permanent ({members.length - contractCount})</option>
+            <option value="contract" className="bg-slate-800">Contract ({contractCount})</option>
+          </select>
+
+          {filtersActive && (
+            <button
+              onClick={() => { setSearch(''); setFilterDept('all'); setFilterStaffType('all'); }}
+              className="px-3 py-2 text-xs text-slate-400 hover:text-slate-200 transition-colors cursor-pointer"
+            >
+              Clear
             </button>
-            {departments.map((dept) => {
-              const count = members.filter((m) => m.department?.id === dept.id).length;
-              return (
-                <button
-                  key={dept.id}
-                  onClick={() => setFilterDept(dept.id)}
-                  className={`px-4 py-2 rounded-lg text-xs font-medium transition-all whitespace-nowrap cursor-pointer
-                    ${filterDept === dept.id
-                      ? 'bg-accent-500/15 text-accent-400 shadow-sm'
-                      : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]'}`}
-                >
-                  {dept.name} ({count})
-                </button>
-              );
-            })}
-            {(() => {
-              const unassignedCount = members.filter((m) => !m.department).length;
-              return unassignedCount > 0 ? (
-                <button
-                  onClick={() => setFilterDept('unassigned')}
-                  className={`px-4 py-2 rounded-lg text-xs font-medium transition-all whitespace-nowrap cursor-pointer
-                    ${filterDept === 'unassigned'
-                      ? 'bg-accent-500/15 text-accent-400 shadow-sm'
-                      : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]'}`}
-                >
-                  Unassigned ({unassignedCount})
-                </button>
-              ) : null;
-            })()}
+          )}
+        </div>
+
+        {/* ── Staff table ── */}
+        {loading ? (
+          <div className="flex items-center justify-center py-20">
+            <div className="w-8 h-8 border-2 border-accent-500 border-t-transparent rounded-full animate-spin" />
+          </div>
+        ) : (
+          <div className="bg-surface-900/60 border border-white/[0.06] rounded-2xl overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-white/[0.06]">
+                    {['Name', 'Department', 'Level', 'Employment', 'Role', ''].map((h) => (
+                      <th
+                        key={h}
+                        className="text-left px-4 py-2.5 text-[10px] uppercase tracking-wider font-semibold text-slate-500 bg-slate-800/40 first:pl-5 last:pr-5"
+                      >
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredMembers.map((m, i) => {
+                    const cfg = ROLE_CONFIG[m.role] || ROLE_CONFIG.member;
+                    const typeCfg = STAFF_TYPE_CONFIG[m.staffType] || STAFF_TYPE_CONFIG.permanent;
+                    const isLast = i === filteredMembers.length - 1;
+                    return (
+                      <Fragment key={m.id}>
+                        <tr
+                          className={`group hover:bg-white/[0.02] transition-colors ${isLast && historyFor !== m.id ? '' : 'border-b border-white/[0.04]'}`}
+                        >
+                          {/* Name */}
+                          <td className="px-4 py-3 pl-5">
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 shrink-0 rounded-full bg-accent-500/10 border border-accent-500/20 flex items-center justify-center text-[11px] font-bold text-accent-400">
+                                {initials(m.name)}
+                              </div>
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-1.5">
+                                  <Link
+                                    to={`/staff/${m.userId}`}
+                                    className="text-sm font-semibold text-white hover:text-accent-400 transition-colors truncate"
+                                  >
+                                    {m.name}
+                                  </Link>
+                                  {m.isHrOfficer && (
+                                    <span
+                                      title="HR officer — the only person who can write the HR comment"
+                                      className="inline-flex items-center gap-0.5 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full border bg-teal-500/10 text-teal-300 border-teal-500/20"
+                                    >
+                                      <BadgeCheck className="w-2.5 h-2.5" />
+                                      HR
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="text-[11px] text-slate-500 truncate">{m.email}</div>
+                              </div>
+                            </div>
+                          </td>
+
+                          {/* Department */}
+                          <td className="px-4 py-3">
+                            {isEditing(m.id, 'dept') ? (
+                              <select
+                                autoFocus
+                                defaultValue={m.department?.id || ''}
+                                onChange={(e) => handleDeptChange(m.id, e.target.value)}
+                                onBlur={() => setEditing(null)}
+                                className={selectClass}
+                              >
+                                <option value="" className="bg-slate-800">No department</option>
+                                {departments.map((d) => (
+                                  <option key={d.id} value={d.id} className="bg-slate-800">{d.name}</option>
+                                ))}
+                              </select>
+                            ) : (
+                              <button
+                                disabled={!isAdmin}
+                                onClick={() => setEditing({ id: m.id, field: 'dept' })}
+                                className={`text-[11px] font-medium px-2 py-0.5 rounded-full border transition-all ${
+                                  m.department ? getDeptColor(m.department.slug) : 'bg-white/[0.03] text-slate-500 border-white/[0.06]'
+                                } ${isAdmin ? 'cursor-pointer hover:brightness-125' : 'cursor-default'}`}
+                              >
+                                {m.department?.name || 'Unassigned'}
+                              </button>
+                            )}
+                          </td>
+
+                          {/* Level */}
+                          <td className="px-4 py-3">
+                            {isEditing(m.id, 'level') ? (
+                              <select
+                                autoFocus
+                                defaultValue={m.level ?? ''}
+                                onChange={(e) => e.target.value && handleLevelChange(m.id, e.target.value)}
+                                onBlur={() => setEditing(null)}
+                                className={selectClass}
+                              >
+                                <option value="" className="bg-slate-800">Set level</option>
+                                {LEVELS.map((l) => (
+                                  <option key={l} value={l} className="bg-slate-800">Level {l}</option>
+                                ))}
+                              </select>
+                            ) : (
+                              <div className="flex items-center gap-1">
+                                <button
+                                  disabled={!isAdmin}
+                                  onClick={() => setEditing({ id: m.id, field: 'level' })}
+                                  className={`text-[11px] font-bold px-2 py-0.5 rounded-full border transition-all ${
+                                    m.level != null
+                                      ? 'bg-violet-500/10 text-violet-300 border-violet-500/20'
+                                      : 'bg-white/[0.03] text-slate-500 border-white/[0.06]'
+                                  } ${isAdmin ? 'cursor-pointer hover:brightness-125' : 'cursor-default'}`}
+                                >
+                                  {m.level != null ? `Level ${m.level}` : '--'}
+                                </button>
+                                {m.level != null && (
+                                  <button
+                                    onClick={() => openLevelHistory(m)}
+                                    title="Level history"
+                                    className="p-1 rounded text-slate-600 hover:text-violet-300 opacity-0 group-hover:opacity-100 transition-all cursor-pointer"
+                                  >
+                                    <History className="w-3 h-3" />
+                                  </button>
+                                )}
+                              </div>
+                            )}
+                          </td>
+
+                          {/* Employment */}
+                          <td className="px-4 py-3">
+                            {isEditing(m.id, 'type') ? (
+                              <select
+                                autoFocus
+                                defaultValue={m.staffType || 'permanent'}
+                                onChange={(e) => handleStaffTypeChange(m.id, e.target.value)}
+                                onBlur={() => setEditing(null)}
+                                className={selectClass}
+                              >
+                                {Object.entries(STAFF_TYPE_CONFIG).map(([key, c]) => (
+                                  <option key={key} value={key} className="bg-slate-800">{c.label}</option>
+                                ))}
+                              </select>
+                            ) : (
+                              <button
+                                disabled={!isAdmin}
+                                onClick={() => setEditing({ id: m.id, field: 'type' })}
+                                className={`text-[11px] font-medium px-2 py-0.5 rounded-full border transition-all ${typeCfg.color} ${
+                                  isAdmin ? 'cursor-pointer hover:brightness-125' : 'cursor-default'
+                                }`}
+                              >
+                                {typeCfg.label}
+                              </button>
+                            )}
+                          </td>
+
+                          {/* Role */}
+                          <td className="px-4 py-3">
+                            {isEditing(m.id, 'role') ? (
+                              <select
+                                autoFocus
+                                defaultValue={m.role}
+                                onChange={(e) => handleRoleChange(m.id, e.target.value)}
+                                onBlur={() => setEditing(null)}
+                                className={selectClass}
+                              >
+                                {ROLE_ORDER.map((r) => (
+                                  <option key={r} value={r} className="bg-slate-800">{ROLE_CONFIG[r].label}</option>
+                                ))}
+                              </select>
+                            ) : (
+                              <button
+                                disabled={!isAdmin}
+                                onClick={() => setEditing({ id: m.id, field: 'role' })}
+                                title={cfg.description}
+                                className={`inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border transition-all ${cfg.color} ${
+                                  isAdmin ? 'cursor-pointer hover:brightness-125' : 'cursor-default'
+                                }`}
+                              >
+                                <cfg.Icon className="w-3 h-3" />
+                                {cfg.label}
+                              </button>
+                            )}
+                          </td>
+
+                          {/* Actions */}
+                          <td className="px-4 py-3 pr-5">
+                            {isAdmin && (
+                              <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+                                {!m.isHrOfficer && (
+                                  <button
+                                    onClick={() => handleSetHrOfficer(m)}
+                                    className="p-1.5 rounded-lg text-slate-500 hover:text-teal-400 hover:bg-white/[0.06] transition-all cursor-pointer"
+                                    title="Make HR officer"
+                                  >
+                                    <BadgeCheck className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+                                <button
+                                  onClick={() => handleRemove(m.id, m.name)}
+                                  className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-all cursor-pointer"
+                                  title="Remove from organisation"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+
+                        {/* Level history */}
+                        {historyFor === m.id && (
+                          <tr className={isLast ? '' : 'border-b border-white/[0.04]'}>
+                            <td colSpan={6} className="px-5 py-3 bg-surface-950/40">
+                              {loadingHistory ? (
+                                <p className="text-[11px] text-slate-500">Loading level history...</p>
+                              ) : levelHistory.length === 0 ? (
+                                <p className="text-[11px] text-slate-500">
+                                  No level changes recorded — Level {m.level} was set when {m.name.split(' ')[0]} was added.
+                                </p>
+                              ) : (
+                                <div className="space-y-1.5">
+                                  {levelHistory.map((h) => (
+                                    <div key={h.id} className="flex items-center gap-2 text-[11px]">
+                                      <span className="text-slate-300 font-medium">
+                                        {h.fromLevel ? `Level ${h.fromLevel}` : 'No level'} &rarr; Level {h.toLevel}
+                                      </span>
+                                      <span className="text-slate-600">
+                                        {new Date(h.createdAt).toLocaleDateString()} · by {h.changedBy}
+                                      </span>
+                                      {h.note && <span className="text-slate-500 italic truncate">{h.note}</span>}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                        )}
+                      </Fragment>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {filteredMembers.length === 0 && (
+              <div className="text-center py-14 text-sm text-slate-500">
+                {filtersActive ? 'No staff match these filters.' : 'No staff yet.'}
+              </div>
+            )}
+
+            {isAdmin && filteredMembers.length > 0 && (
+              <p className="text-[11px] text-slate-600 px-5 py-3 border-t border-white/[0.04]">
+                Select a badge to change it. Select a name to open that person&apos;s record.
+              </p>
+            )}
           </div>
         )}
 
-        {/* Employment type filter */}
-        <div className="flex gap-1 p-1 bg-surface-900/60 border border-white/[0.06] rounded-xl mb-6 overflow-x-auto w-fit">
-          {[
-            { key: 'all', label: `All staff (${members.length})` },
-            { key: 'permanent', label: `Permanent (${members.length - contractCount})` },
-            { key: 'contract', label: `Contract (${contractCount})` },
-          ].map((f) => (
-            <button
-              key={f.key}
-              onClick={() => setFilterStaffType(f.key)}
-              className={`px-4 py-2 rounded-lg text-xs font-medium transition-all whitespace-nowrap cursor-pointer
-                ${filterStaffType === f.key
-                  ? 'bg-accent-500/15 text-accent-400 shadow-sm'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]'}`}
-            >
-              {f.label}
-            </button>
-          ))}
+        {/* ── Role reference ── */}
+        <div className="mt-4">
+          <button
+            onClick={() => setShowRoleHelp(!showRoleHelp)}
+            className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-300 transition-colors cursor-pointer"
+          >
+            <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showRoleHelp ? 'rotate-180' : ''}`} />
+            What do the roles mean?
+          </button>
+          <AnimatePresence>
+            {showRoleHelp && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="overflow-hidden"
+              >
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mt-3">
+                  {Object.entries(ROLE_CONFIG).map(([key, cfg]) => (
+                    <div key={key} className="p-3 bg-surface-900/60 border border-white/[0.06] rounded-xl">
+                      <div className="flex items-center gap-2 mb-1">
+                        <cfg.Icon className="w-3.5 h-3.5 text-slate-400" />
+                        <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${cfg.color}`}>
+                          {cfg.label}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 leading-relaxed">{cfg.description}</p>
+                    </div>
+                  ))}
+                  <div className="p-3 bg-surface-900/60 border border-white/[0.06] rounded-xl">
+                    <div className="flex items-center gap-2 mb-1">
+                      <BadgeCheck className="w-3.5 h-3.5 text-teal-400" />
+                      <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border bg-teal-500/10 text-teal-300 border-teal-500/20">
+                        HR Officer
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 leading-relaxed">
+                      Not a role — one named person per organisation, the only one who can write the HR comment on an appraisal.
+                    </p>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
-        {/* Role legend */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
-          {Object.entries(ROLE_CONFIG).map(([key, cfg]) => (
-            <div key={key} className="p-3 bg-surface-900/60 border border-white/[0.06] rounded-xl">
-              <div className="flex items-center gap-2 mb-1">
-                <cfg.Icon className="w-4 h-4 text-slate-400" />
-                <span className={`text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${cfg.color}`}>
-                  {cfg.label}
-                </span>
-              </div>
-              <p className="text-[11px] text-slate-500 leading-relaxed">{cfg.description}</p>
-            </div>
-          ))}
-        </div>
-
-        {/* Invite Modal */}
+        {/* ── Add staff modal ── */}
         <AnimatePresence>
           {showInvite && (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
               onClick={() => setShowInvite(false)}
             >
               <motion.div
@@ -460,7 +758,9 @@ export default function StaffPage() {
                 onClick={(e) => e.stopPropagation()}
               >
                 <h3 className="text-lg font-bold text-white mb-1">Add Staff Member</h3>
-                <p className="text-xs text-slate-500 mb-4">Enter the staff member&apos;s details. An account will be created automatically if they don&apos;t have one.</p>
+                <p className="text-xs text-slate-500 mb-4">
+                  An account is created automatically if they don&apos;t have one.
+                </p>
 
                 <form onSubmit={handleInvite}>
                   <Input
@@ -468,45 +768,36 @@ export default function StaffPage() {
                     type="text"
                     value={inviteName}
                     onChange={(e) => setInviteName(e.target.value)}
-                    placeholder="John Doe"
-                    required
+                    placeholder="Jane Doe"
                   />
                   <Input
                     label="Email Address"
                     type="email"
                     value={inviteEmail}
                     onChange={(e) => setInviteEmail(e.target.value)}
-                    placeholder="john@company.com"
-                    required
+                    placeholder="jane@company.com"
                   />
 
-                  {/* Department selector */}
-                  {departments.length > 0 && (
-                    <div className="mb-4">
+                  <div className="grid grid-cols-2 gap-3 mb-4">
+                    <div>
                       <label className="text-xs font-medium text-slate-400 uppercase tracking-wider block mb-2">Department</label>
                       <select
                         value={inviteDeptId}
                         onChange={(e) => setInviteDeptId(e.target.value)}
-                        className="w-full px-4 py-2.5 bg-slate-800/50 border border-white/[0.06] rounded-lg text-sm text-slate-100 outline-none focus:border-accent-500/50 focus:ring-2 focus:ring-accent-500/20 transition-all appearance-none cursor-pointer"
+                        className="w-full px-3 py-2.5 bg-slate-800/50 border border-white/[0.06] rounded-lg text-sm text-slate-100 outline-none focus:border-accent-500/50 transition-all cursor-pointer"
                       >
-                        <option value="" className="bg-slate-800">No department</option>
+                        <option value="" className="bg-slate-800">None</option>
                         {departments.map((dept) => (
-                          <option key={dept.id} value={dept.id} className="bg-slate-800">
-                            {dept.name}
-                          </option>
+                          <option key={dept.id} value={dept.id} className="bg-slate-800">{dept.name}</option>
                         ))}
                       </select>
                     </div>
-                  )}
-
-                  {/* Level + employment type */}
-                  <div className="grid grid-cols-2 gap-3 mb-4">
                     <div>
                       <label className="text-xs font-medium text-slate-400 uppercase tracking-wider block mb-2">Level</label>
                       <select
                         value={inviteLevel}
                         onChange={(e) => setInviteLevel(e.target.value)}
-                        className="w-full px-4 py-2.5 bg-slate-800/50 border border-white/[0.06] rounded-lg text-sm text-slate-100 outline-none focus:border-accent-500/50 focus:ring-2 focus:ring-accent-500/20 transition-all appearance-none cursor-pointer"
+                        className="w-full px-3 py-2.5 bg-slate-800/50 border border-white/[0.06] rounded-lg text-sm text-slate-100 outline-none focus:border-accent-500/50 transition-all cursor-pointer"
                       >
                         <option value="" className="bg-slate-800">Not set</option>
                         {LEVELS.map((l) => (
@@ -514,40 +805,52 @@ export default function StaffPage() {
                         ))}
                       </select>
                     </div>
-                    <div>
-                      <label className="text-xs font-medium text-slate-400 uppercase tracking-wider block mb-2">Employment</label>
-                      <select
-                        value={inviteStaffType}
-                        onChange={(e) => setInviteStaffType(e.target.value)}
-                        className="w-full px-4 py-2.5 bg-slate-800/50 border border-white/[0.06] rounded-lg text-sm text-slate-100 outline-none focus:border-accent-500/50 focus:ring-2 focus:ring-accent-500/20 transition-all appearance-none cursor-pointer"
-                      >
-                        {Object.entries(STAFF_TYPE_CONFIG).map(([key, cfg]) => (
-                          <option key={key} value={key} className="bg-slate-800">{cfg.label}</option>
-                        ))}
-                      </select>
+                  </div>
+
+                  <div className="mb-4">
+                    <label className="text-xs font-medium text-slate-400 uppercase tracking-wider block mb-2">Employment</label>
+                    <div className="flex gap-2">
+                      {Object.entries(STAFF_TYPE_CONFIG).map(([key, cfg]) => (
+                        <button
+                          key={key}
+                          type="button"
+                          onClick={() => setInviteStaffType(key)}
+                          className={`flex-1 px-3 py-2 rounded-lg border-2 text-xs font-semibold transition-all cursor-pointer ${
+                            inviteStaffType === key
+                              ? 'bg-accent-500/10 border-accent-500/40 text-white'
+                              : 'bg-slate-800/50 border-white/[0.06] text-slate-400 hover:border-white/10'
+                          }`}
+                        >
+                          {cfg.label}
+                        </button>
+                      ))}
                     </div>
                   </div>
 
                   <div className="mb-4">
-                    <label className="text-xs font-medium text-slate-400 uppercase tracking-wider block mb-2">Assign Role</label>
+                    <label className="text-xs font-medium text-slate-400 uppercase tracking-wider block mb-2">Role</label>
                     <div className="space-y-2">
-                      {Object.entries(ROLE_CONFIG).map(([key, cfg]) => (
-                        <button
-                          key={key}
-                          type="button"
-                          onClick={() => setInviteRole(key)}
-                          className={`w-full flex items-center gap-3 p-3 rounded-xl border-2 text-left transition-all cursor-pointer
-                            ${inviteRole === key
-                              ? 'bg-accent-500/10 border-accent-500/40'
-                              : 'bg-slate-800/50 border-white/[0.06] hover:border-white/10'}`}
-                        >
-                          <cfg.Icon className="w-4 h-4 text-slate-400 shrink-0" />
-                          <div>
-                            <span className="text-sm font-semibold text-white block">{cfg.label}</span>
-                            <span className="text-[10px] text-slate-500">{cfg.description}</span>
-                          </div>
-                        </button>
-                      ))}
+                      {ROLE_ORDER.map((key) => {
+                        const cfg = ROLE_CONFIG[key];
+                        return (
+                          <button
+                            key={key}
+                            type="button"
+                            onClick={() => setInviteRole(key)}
+                            className={`w-full flex items-center gap-3 p-2.5 rounded-xl border-2 text-left transition-all cursor-pointer ${
+                              inviteRole === key
+                                ? 'bg-accent-500/10 border-accent-500/40'
+                                : 'bg-slate-800/50 border-white/[0.06] hover:border-white/10'
+                            }`}
+                          >
+                            <cfg.Icon className="w-4 h-4 text-slate-400 shrink-0" />
+                            <div className="min-w-0">
+                              <span className="text-sm font-semibold text-white block">{cfg.label}</span>
+                              <span className="text-[10px] text-slate-500">{cfg.description}</span>
+                            </div>
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
 
@@ -556,235 +859,18 @@ export default function StaffPage() {
                   </div>
 
                   <div className="flex gap-2">
-                    <Button type="submit" disabled={!inviteEmail || !inviteName || inviting}>
+                    <Button type="button" variant="secondary" onClick={() => setShowInvite(false)} fullWidth>
+                      Cancel
+                    </Button>
+                    <Button type="submit" disabled={!inviteEmail || !inviteName || inviting} fullWidth>
                       {inviting ? 'Adding...' : 'Add Staff'}
                     </Button>
-                    <Button variant="secondary" onClick={() => setShowInvite(false)}>Cancel</Button>
                   </div>
                 </form>
               </motion.div>
             </motion.div>
           )}
         </AnimatePresence>
-
-        {/* Staff list */}
-        {loading ? (
-          <div className="flex items-center justify-center py-20">
-            <div className="w-8 h-8 border-2 border-accent-500 border-t-transparent rounded-full animate-spin" />
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {filteredMembers.map((m, i) => {
-              const cfg = ROLE_CONFIG[m.role] || ROLE_CONFIG.member;
-              return (
-                <motion.div
-                  key={m.id}
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.03 }}
-                  className="p-4 bg-surface-900/60 border border-white/[0.06] rounded-xl hover:border-white/10 transition-all"
-                >
-                  <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-full bg-accent-500/10 border border-accent-500/20 flex items-center justify-center">
-                      <cfg.Icon className="w-5 h-5 text-accent-400" />
-                    </div>
-                    <div>
-                      <div className="text-sm font-semibold text-white flex items-center gap-2 flex-wrap">
-                        <Link to={`/staff/${m.userId}`} className="hover:text-accent-400 transition-colors">
-                          {m.name}
-                        </Link>
-                        {m.department && (
-                          <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full border ${getDeptColor(m.department.slug)}`}>
-                            {m.department.name}
-                          </span>
-                        )}
-                        {m.level != null && (
-                          <button
-                            onClick={() => openLevelHistory(m)}
-                            className="text-[10px] font-bold px-2 py-0.5 rounded-full border bg-violet-500/10 text-violet-300 border-violet-500/20 hover:bg-violet-500/20 transition-all cursor-pointer"
-                            title="View level history"
-                          >
-                            Level {m.level}
-                          </button>
-                        )}
-                        <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full border ${(STAFF_TYPE_CONFIG[m.staffType] || STAFF_TYPE_CONFIG.permanent).color}`}>
-                          {(STAFF_TYPE_CONFIG[m.staffType] || STAFF_TYPE_CONFIG.permanent).label}
-                        </span>
-                        {m.isHrOfficer && (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border bg-teal-500/10 text-teal-300 border-teal-500/20">
-                            <BadgeCheck className="w-3 h-3" />
-                            HR Officer
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-xs text-slate-500">{m.email}</div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    {editingDept === m.id ? (
-                      <div className="flex gap-1 items-center">
-                        <select
-                          defaultValue={m.department?.id || ''}
-                          onChange={(e) => handleDeptChange(m.id, e.target.value)}
-                          className="px-2 py-1 bg-slate-800/80 border border-white/[0.08] rounded-lg text-[11px] text-slate-200 outline-none cursor-pointer"
-                        >
-                          <option value="" className="bg-slate-800">No dept</option>
-                          {departments.map((d) => (
-                            <option key={d.id} value={d.id} className="bg-slate-800">{d.name}</option>
-                          ))}
-                        </select>
-                        <button
-                          onClick={() => setEditingDept(null)}
-                          className="px-2 py-1 text-slate-500 hover:text-slate-300 text-xs cursor-pointer"
-                        >
-                          &times;
-                        </button>
-                      </div>
-                    ) : editingLevel === m.id ? (
-                      <div className="flex gap-1 items-center">
-                        <select
-                          defaultValue={m.level ?? ''}
-                          onChange={(e) => e.target.value && handleLevelChange(m.id, e.target.value)}
-                          className="px-2 py-1 bg-slate-800/80 border border-white/[0.08] rounded-lg text-[11px] text-slate-200 outline-none cursor-pointer"
-                        >
-                          <option value="" className="bg-slate-800">Set level</option>
-                          {LEVELS.map((l) => (
-                            <option key={l} value={l} className="bg-slate-800">Level {l}</option>
-                          ))}
-                        </select>
-                        <select
-                          value={m.staffType || 'permanent'}
-                          onChange={(e) => handleStaffTypeChange(m.id, e.target.value)}
-                          className="px-2 py-1 bg-slate-800/80 border border-white/[0.08] rounded-lg text-[11px] text-slate-200 outline-none cursor-pointer"
-                        >
-                          {Object.entries(STAFF_TYPE_CONFIG).map(([key, c]) => (
-                            <option key={key} value={key} className="bg-slate-800">{c.label}</option>
-                          ))}
-                        </select>
-                        <button
-                          onClick={() => setEditingLevel(null)}
-                          className="px-2 py-1 text-slate-500 hover:text-slate-300 text-xs cursor-pointer"
-                        >
-                          &times;
-                        </button>
-                      </div>
-                    ) : editingMember === m.id ? (
-                      <div className="flex gap-1">
-                        {['admin', 'lead', 'md', 'chairman', 'member'].map((r) => (
-                          <button
-                            key={r}
-                            onClick={() => handleRoleChange(m.id, r)}
-                            className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer border
-                              ${m.role === r
-                                ? ROLE_CONFIG[r].color
-                                : 'bg-white/[0.04] text-slate-500 border-transparent hover:bg-white/[0.08]'}`}
-                          >
-                            {ROLE_CONFIG[r].label}
-                          </button>
-                        ))}
-                        <button
-                          onClick={() => setEditingMember(null)}
-                          className="px-2 py-1.5 text-slate-500 hover:text-slate-300 text-xs cursor-pointer"
-                        >
-                          &times;
-                        </button>
-                      </div>
-                    ) : (
-                      <>
-                        <span className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full border ${cfg.color}`}>
-                          {cfg.label}
-                        </span>
-                        {isAdmin && (
-                          <div className="flex gap-1">
-                            <button
-                              onClick={() => { setEditingDept(m.id); setEditingMember(null); }}
-                              className="p-1.5 rounded-lg text-slate-500 hover:text-slate-300 hover:bg-white/[0.06] transition-all cursor-pointer"
-                              title="Change department"
-                            >
-                              <Building2 className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              onClick={() => { setEditingLevel(m.id); setEditingDept(null); setEditingMember(null); }}
-                              className="p-1.5 rounded-lg text-slate-500 hover:text-slate-300 hover:bg-white/[0.06] transition-all cursor-pointer"
-                              title="Change level or employment type"
-                            >
-                              <TrendingUp className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              onClick={() => { setEditingMember(m.id); setEditingDept(null); setEditingLevel(null); }}
-                              className="p-1.5 rounded-lg text-slate-500 hover:text-slate-300 hover:bg-white/[0.06] transition-all cursor-pointer"
-                              title="Change role"
-                            >
-                              <Pencil className="w-3.5 h-3.5" />
-                            </button>
-                            {!m.isHrOfficer && (
-                              <button
-                                onClick={() => handleSetHrOfficer(m)}
-                                className="p-1.5 rounded-lg text-slate-500 hover:text-teal-400 hover:bg-white/[0.06] transition-all cursor-pointer"
-                                title="Make HR officer"
-                              >
-                                <BadgeCheck className="w-3.5 h-3.5" />
-                              </button>
-                            )}
-                            <button
-                              onClick={() => handleRemove(m.id, m.name)}
-                              className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-all cursor-pointer"
-                              title="Remove member"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </div>
-                  </div>
-
-                  {/* Level history — the promotion trail behind the current level */}
-                  {historyFor === m.id && (
-                    <div className="mt-3 pt-3 border-t border-white/[0.06]">
-                      {loadingHistory ? (
-                        <p className="text-[11px] text-slate-500">Loading level history...</p>
-                      ) : levelHistory.length === 0 ? (
-                        <p className="text-[11px] text-slate-500">
-                          No level changes recorded — Level {m.level} was set when they were added.
-                        </p>
-                      ) : (
-                        <div className="space-y-1.5">
-                          {levelHistory.map((h) => (
-                            <div key={h.id} className="flex items-center gap-2 text-[11px]">
-                              <span className="text-slate-300 font-medium">
-                                {h.fromLevel ? `Level ${h.fromLevel}` : 'No level'} &rarr; Level {h.toLevel}
-                              </span>
-                              <span className="text-slate-600">
-                                {new Date(h.createdAt).toLocaleDateString()} &middot; by {h.changedBy}
-                              </span>
-                              {h.note && <span className="text-slate-500 italic truncate">{h.note}</span>}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </motion.div>
-              );
-            })}
-
-            {filteredMembers.length === 0 && (
-              <div className="text-center py-12 text-slate-500 text-sm">
-                No staff members in this department.
-              </div>
-            )}
-          </div>
-        )}
-
-        {!isAdmin && (
-          <div className="mt-6 px-4 py-3 bg-slate-800/50 border border-white/[0.06] rounded-lg text-xs text-slate-500 text-center">
-            Only administrators can invite staff and change roles.
-          </div>
-        )}
       </div>
     </PageWrapper>
   );
