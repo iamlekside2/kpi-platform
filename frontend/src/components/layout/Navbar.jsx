@@ -30,7 +30,7 @@ function timeAgo(date) {
 }
 
 export default function Navbar({ onMobileMenuToggle, mobileOpen }) {
-  const { user, activeOrg, logout } = useAuth();
+  const { user, activeOrg, orgs, switchOrg, logout } = useAuth();
   const { mode, toggleMode } = useTheme();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
@@ -119,6 +119,24 @@ export default function Navbar({ onMobileMenuToggle, mobileOpen }) {
         )}
       </div>
       <div className="flex items-center gap-3">
+        {/* Org switcher — only when the account belongs to more than one org.
+            Role and permissions follow the selected org, so this is the
+            difference between seeing the admin view and the employee view. */}
+        {orgs.length > 1 && (
+          <select
+            value={activeOrg?.id || ''}
+            onChange={(e) => switchOrg(e.target.value)}
+            title="Switch organisation"
+            className="max-w-[200px] px-3 py-2 bg-white/[0.04] border border-white/[0.06] rounded-lg text-xs text-slate-300 outline-none hover:bg-white/[0.08] focus:border-accent-500/40 transition-colors cursor-pointer"
+          >
+            {orgs.map((o) => (
+              <option key={o.id} value={o.id} className="bg-slate-800">
+                {o.name} ({o.role})
+              </option>
+            ))}
+          </select>
+        )}
+
         {/* Light/Dark Toggle */}
         <motion.button
           onClick={toggleMode}

@@ -162,6 +162,10 @@ async function getUserOrgs(userId) {
         },
       },
     },
+    // Without this the order is whatever Postgres returns, and the client
+    // takes the first org — so a second membership could silently swap which
+    // org (and which role) the whole app ran as. Oldest first is stable.
+    orderBy: { org: { createdAt: 'asc' } },
   });
 
   return memberships.map((m) => {

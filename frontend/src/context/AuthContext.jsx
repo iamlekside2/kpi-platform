@@ -4,20 +4,27 @@ import api, { setAccessToken } from '../services/api';
 
 const AuthContext = createContext(null);
 
+// Which org the user last worked in. Without this a multi-org account
+// silently lands on whichever org came back first.
+const ACTIVE_ORG_KEY = 'activeOrgId';
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [orgRole, setOrgRole] = useState(null); // admin | lead | member | md | chairman
   const [isHr, setIsHr] = useState(false); // HR posting, independent of orgRole
   const [activeOrg, setActiveOrg] = useState(null);
+  const [orgs, setOrgs] = useState([]);
   const [loading, setLoading] = useState(true);
   const didRestore = useRef(false);
 
   // Fetch user's org role after login/restore
   const loadOrgRole = useCallback(async () => {
     try {
-      const { data: orgs } = await api.get('/orgs');
-      if (orgs.length === 0) return;
-      const next = orgs[0];
+      const { data } = await api.get('/orgs');
+      if (data.length === 0) return;
+      setOrgs(data);
+      const storedId = localStorage.getItem(ACTIVE_ORG_KEY);
+      const next = data.find((o) => o.id === storedId) || data[0];
       // Keep the same object identity when nothing changed, so effects that
       // depend on activeOrg don't refetch on every re-check.
       setActiveOrg((prev) => (prev && JSON.stringify(prev) === JSON.stringify(next) ? prev : next));
@@ -64,6 +71,7 @@ export function AuthProvider({ children }) {
       setOrgRole(null);
       setIsHr(false);
       setActiveOrg(null);
+      setOrgs([]);
     }
   }, [user, loadOrgRole]);
 
@@ -99,6 +107,15 @@ export function AuthProvider({ children }) {
     return data;
   }, []);
 
+  const switchOrg = useCallback((orgId) => {
+    const next = orgs.find((o) => o.id === orgId);
+    if (!next) return;
+    localStorage.setItem(ACTIVE_ORG_KEY, orgId);
+    setActiveOrg(next);
+    setOrgRole(next.role || 'member');
+    setIsHr(Boolean(next.isHr));
+  }, [orgs]);
+
   const logout = useCallback(async () => {
     try {
       await api.post('/auth/logout');
@@ -106,6 +123,7 @@ export function AuthProvider({ children }) {
       // ignore
     }
     localStorage.setItem('loggedOut', 'true'); // prevent auto-restore on refresh
+    localStorage.removeItem(ACTIVE_ORG_KEY);
     setAccessToken(null);
     setUser(null);
   }, []);
@@ -113,7 +131,7 @@ export function AuthProvider({ children }) {
   return (
     <AuthContext.Provider value={{
       user, setUser, loading, login, register, logout, isAuthenticated: !!user,
-      orgRole, isHr, activeOrg, loadOrgRole,
+      orgRole, isHr, activeOrg, orgs, switchOrg, loadOrgRole,
     }}>
       {children}
     </AuthContext.Provider>
