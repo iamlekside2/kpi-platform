@@ -9,7 +9,7 @@ import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import {
   ShieldCheck, UsersRound, Briefcase, Landmark, User,
-  Building2, Trash2, Plus, X, BadgeCheck, Search, History, ChevronDown,
+  Building2, Trash2, Plus, X, BadgeCheck, Search, History, ChevronDown, Pencil,
 } from 'lucide-react';
 
 const ROLE_CONFIG = {
@@ -70,6 +70,9 @@ export default function StaffPage() {
   const [search, setSearch] = useState('');
   const [filterDept, setFilterDept] = useState('all');
   const [filterStaffType, setFilterStaffType] = useState('all');
+  const [editUser, setEditUser] = useState(null); // the member whose details are open
+  const [editForm, setEditForm] = useState({ name: '', email: '', integrationEmail: '' });
+  const [savingUser, setSavingUser] = useState(false);
   const [showDepts, setShowDepts] = useState(false);
   const [showRoleHelp, setShowRoleHelp] = useState(false);
   const [newDeptName, setNewDeptName] = useState('');
@@ -183,6 +186,41 @@ export default function StaffPage() {
       toast.success(`${data.name} is now ${STAFF_TYPE_CONFIG[data.staffType].label.toLowerCase()} staff`);
     } catch (err) {
       toast.error(err.response?.data?.error || 'Failed to update staff type');
+    }
+  }
+
+  function openEditUser(member) {
+    setEditForm({
+      name: member.name || '',
+      email: member.email || '',
+      integrationEmail: member.integrationEmail || '',
+    });
+    setEditUser(member);
+  }
+
+  async function handleSaveUser(e) {
+    e.preventDefault();
+    setSavingUser(true);
+    try {
+      const { data } = await api.patch(
+        `/orgs/${activeOrg.id}/members/${editUser.id}/user`,
+        editForm
+      );
+      setMembers(members.map((m) => m.id === editUser.id
+        ? { ...m, name: data.name, email: data.email, integrationEmail: data.integrationEmail }
+        : m));
+      setEditUser(null);
+      if (data.changed.length === 0) {
+        toast.success('Nothing to change');
+      } else if (data.changed.includes('email')) {
+        toast.success(`${data.name} now signs in with ${data.email}`);
+      } else {
+        toast.success(`${data.name} updated`);
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to update staff details');
+    } finally {
+      setSavingUser(false);
     }
   }
 
@@ -624,6 +662,13 @@ export default function StaffPage() {
                           <td className="px-4 py-3 pr-5">
                             {isAdmin && (
                               <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+                                <button
+                                  onClick={() => openEditUser(m)}
+                                  className="p-1.5 rounded-lg text-slate-500 hover:text-slate-200 hover:bg-white/[0.06] transition-all cursor-pointer"
+                                  title="Edit name and email"
+                                >
+                                  <Pencil className="w-3.5 h-3.5" />
+                                </button>
                                 {!m.isHrOfficer && (
                                   <button
                                     onClick={() => handleSetHrOfficer(m)}
@@ -739,6 +784,70 @@ export default function StaffPage() {
             )}
           </AnimatePresence>
         </div>
+
+        {/* ── Edit staff details ── */}
+        <AnimatePresence>
+          {editUser && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+              onClick={() => setEditUser(null)}
+            >
+              <motion.div
+                initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 20, scale: 0.95 }}
+                className="bg-surface-900 border border-white/[0.06] rounded-2xl p-6 w-full max-w-md shadow-2xl"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <h3 className="text-lg font-bold text-white mb-1">Edit staff details</h3>
+                <p className="text-xs text-slate-500 mb-4">
+                  Role, department, level and employment are changed on the staff list itself.
+                </p>
+
+                <form onSubmit={handleSaveUser}>
+                  <Input
+                    label="Full Name"
+                    type="text"
+                    value={editForm.name}
+                    onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                  />
+                  <Input
+                    label="Login Email"
+                    type="email"
+                    value={editForm.email}
+                    onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                  />
+                  <Input
+                    label="Azure DevOps Email (optional)"
+                    type="email"
+                    value={editForm.integrationEmail}
+                    onChange={(e) => setEditForm({ ...editForm, integrationEmail: e.target.value })}
+                    placeholder="only if different from the login email"
+                  />
+
+                  {editForm.email.trim().toLowerCase() !== (editUser.email || '').toLowerCase() && (
+                    <div className="mb-3 px-3 py-2 bg-amber-500/5 border border-amber-500/20 rounded-lg text-[11px] text-amber-300">
+                      This changes the address {editUser.name.split(' ')[0]} signs in with. Their password is
+                      unchanged, and no email is sent about it, so tell them yourself.
+                    </div>
+                  )}
+
+                  <div className="flex gap-2 mt-2">
+                    <Button type="button" variant="secondary" onClick={() => setEditUser(null)} fullWidth>
+                      Cancel
+                    </Button>
+                    <Button type="submit" disabled={savingUser || !editForm.name.trim() || !editForm.email.trim()} fullWidth>
+                      {savingUser ? 'Saving...' : 'Save'}
+                    </Button>
+                  </div>
+                </form>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* ── Add staff modal ── */}
         <AnimatePresence>

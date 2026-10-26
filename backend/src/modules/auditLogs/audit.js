@@ -189,6 +189,27 @@ async function auditHrOfficerChanged(orgId, result, userId) {
   });
 }
 
+async function auditMemberUserUpdated(orgId, result, userId) {
+  const fields = result.changed.join(', ');
+  const emailMoved = result.changed.includes('email')
+    ? ` (${result.previous.email} to ${result.email})`
+    : '';
+  await createAuditLog({
+    userId,
+    orgId,
+    action: 'update',
+    entityType: 'OrgMember',
+    entityId: result.memberId,
+    description: `Updated ${result.name}'s ${fields}${emailMoved}`,
+    oldValues: {
+      name: result.previous.name,
+      email: result.previous.email,
+      integrationEmail: result.previous.integrationEmail,
+    },
+    newValues: { name: result.name, email: result.email, integrationEmail: result.integrationEmail },
+  });
+}
+
 async function auditMemberRemoved(member, userId) {
   const name = member.user?.name || member.user?.email || member.userId;
   await createAuditLog({
@@ -216,5 +237,6 @@ module.exports = {
   auditMemberLevelChanged,
   auditMemberStaffTypeChanged,
   auditHrOfficerChanged,
+  auditMemberUserUpdated,
   auditMemberRemoved,
 };

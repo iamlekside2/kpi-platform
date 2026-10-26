@@ -1,6 +1,6 @@
 const orgsService = require('./orgs.service');
 const prisma = require('../../config/db');
-const { auditMemberInvited, auditMemberRoleChanged, auditMemberDepartmentChanged, auditMemberLevelChanged, auditMemberStaffTypeChanged, auditHrOfficerChanged, auditMemberRemoved } = require('../auditLogs/audit');
+const { auditMemberInvited, auditMemberRoleChanged, auditMemberDepartmentChanged, auditMemberLevelChanged, auditMemberStaffTypeChanged, auditHrOfficerChanged, auditMemberUserUpdated, auditMemberRemoved } = require('../auditLogs/audit');
 
 async function createOrg(req, res) {
   try {
@@ -232,6 +232,38 @@ async function updateMemberStaffType(req, res) {
   }
 }
 
+async function updateMemberUser(req, res) {
+  try {
+    const { name, email, integrationEmail } = req.body;
+    const result = await orgsService.updateMemberUser(
+      req.params.id,
+      req.params.memberId,
+      { name, email, integrationEmail },
+      req.user.userId
+    );
+
+    if (result.changed.length > 0) {
+      auditMemberUserUpdated(req.params.id, result, req.user.userId).catch(() => {});
+    }
+
+    return res.json(result);
+  } catch (err) {
+    const clientErrors = [
+      'Only admins can edit staff details',
+      'Member not found',
+      'Name cannot be empty',
+      'That email address is not valid',
+      'That integration email is not valid',
+      'Another account already uses that email',
+    ];
+    if (clientErrors.includes(err.message)) {
+      return res.status(400).json({ error: err.message });
+    }
+    console.error('Update member user error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
 async function setHrOfficer(req, res) {
   try {
     const { userId } = req.body;
@@ -296,4 +328,4 @@ async function updateThemeColor(req, res) {
   }
 }
 
-module.exports = { createOrg, getOrg, inviteToOrg, getUserOrgs, getMembers, updateMemberRole, updateMemberDepartment, updateMemberLevel, updateMemberStaffType, setHrOfficer, getMemberLevelHistory, removeMember, updateThemeColor };
+module.exports = { createOrg, getOrg, inviteToOrg, getUserOrgs, getMembers, updateMemberRole, updateMemberDepartment, updateMemberLevel, updateMemberStaffType, updateMemberUser, setHrOfficer, getMemberLevelHistory, removeMember, updateThemeColor };

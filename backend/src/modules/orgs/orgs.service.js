@@ -213,7 +213,7 @@ async function getOrgMembers(orgId, requesterId) {
   const members = await prisma.orgMember.findMany({
     where: { orgId },
     include: {
-      user: { select: { id: true, email: true, name: true, createdAt: true } },
+      user: { select: { id: true, email: true, name: true, integrationEmail: true, createdAt: true } },
       department: { select: { id: true, name: true, slug: true } },
       levelChanges: {
         orderBy: { createdAt: 'desc' },
@@ -234,6 +234,7 @@ async function getOrgMembers(orgId, requesterId) {
     userId: m.userId,
     name: m.user.name,
     email: m.user.email,
+    integrationEmail: m.user.integrationEmail,
     department: m.department || null,
     joinedAt: m.user.createdAt,
   }));
@@ -332,6 +333,68 @@ async function updateMemberLevel(orgId, memberId, { level, note = '' }, requeste
     name: updated.user.name,
     email: updated.user.email,
     previousLevel: target.level,
+  };
+}
+
+// ── Edit a member's user record ──
+// Name, login email and the email their work items are matched on. An admin
+// needs this to fix a typo in an address nobody can otherwise log in with.
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+async function updateMemberUser(orgId, memberId, { name, email, integrationEmail }, requesterId) {
+  const requester = await prisma.orgMember.findUnique({
+    where: { userId_orgId: { userId: requesterId, orgId } },
+  });
+  if (!requester || requester.role !== 'admin') {
+    throw new Error('Only admins can edit staff details');
+  }
+
+  const target = await prisma.orgMember.findUnique({
+    where: { id: memberId },
+    include: { user: { select: { id: true, name: true, email: true, integrationEmail: true } } },
+  });
+  if (!target || target.orgId !== orgId) throw new Error('Member not found');
+
+  const data = {};
+
+  if (name !== undefined) {
+    const trimmed = String(name).trim();
+    if (!trimmed) throw new Error('Name cannot be empty');
+    data.name = trimmed;
+  }
+
+  if (email !== undefined) {
+    const trimmed = String(email).trim().toLowerCase();
+    if (!EMAIL_RE.test(trimmed)) throw new Error('That email address is not valid');
+    if (trimmed !== target.user.email.toLowerCase()) {
+      const taken = await prisma.user.findUnique({ where: { email: trimmed } });
+      if (taken) throw new Error('Another account already uses that email');
+      data.email = trimmed;
+    }
+  }
+
+  // Empty string clears it — the ADO sync then falls back to the login email
+  if (integrationEmail !== undefined) {
+    const trimmed = String(integrationEmail).trim().toLowerCase();
+    if (trimmed && !EMAIL_RE.test(trimmed)) throw new Error('That integration email is not valid');
+    data.integrationEmail = trimmed || null;
+  }
+
+  if (Object.keys(data).length === 0) {
+    return { ...target.user, memberId: target.id, changed: [] };
+  }
+
+  const updated = await prisma.user.update({
+    where: { id: target.userId },
+    data,
+    select: { id: true, name: true, email: true, integrationEmail: true },
+  });
+
+  return {
+    ...updated,
+    memberId: target.id,
+    previous: target.user,
+    changed: Object.keys(data),
   };
 }
 
@@ -493,6 +556,7 @@ module.exports = {
   updateMemberLevel,
   updateMemberStaffType,
   setHrOfficer,
+  updateMemberUser,
   getMemberLevelHistory,
   removeMember,
   updateThemeColor,
