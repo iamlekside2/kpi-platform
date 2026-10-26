@@ -4,6 +4,27 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
 import { LayoutDashboard, BarChart3, Users, ClipboardList, Settings, PanelLeftClose, PanelLeftOpen, ScrollText } from 'lucide-react';
 
+// A sidebar logo wants a short name. Drop the legal suffix, and for anything
+// still long keep the first two words — "Calm Global Information Technology
+// Ltd" becomes "Calm Global". The full name stays in the tooltip, the page
+// header and the browser tab.
+const LEGAL_SUFFIX = /[\s,]+(ltd|limited|plc|inc|llc|nig(eria)?)\.?$/i;
+
+export function brandName(name) {
+  if (!name) return '';
+  const trimmed = name.replace(LEGAL_SUFFIX, '').trim();
+  if (trimmed.length <= 16) return trimmed;
+  const words = trimmed.split(/\s+/);
+  return words.length > 2 ? words.slice(0, 2).join(' ') : trimmed;
+}
+
+function brandParts(name) {
+  const short = brandName(name);
+  if (!short) return ['', ''];
+  const [first, ...rest] = short.split(' ');
+  return [first, rest.length ? ` ${rest.join(' ')}` : ''];
+}
+
 const allLinks = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/kpis', label: 'KPIs', icon: BarChart3 },
@@ -14,7 +35,8 @@ const allLinks = [
 ];
 
 export default function Sidebar({ collapsed, onToggle }) {
-  const { orgRole } = useAuth();
+  const { orgRole, activeOrg } = useAuth();
+  const [brandLead, brandRest] = brandParts(activeOrg?.name);
   const links = allLinks.filter(link => !link.roles || link.roles.includes(orgRole));
 
   return (
@@ -34,9 +56,14 @@ export default function Sidebar({ collapsed, onToggle }) {
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -10 }}
               transition={{ duration: 0.15 }}
-              className="text-lg font-bold text-white tracking-tight whitespace-nowrap"
+              title={activeOrg?.name || undefined}
+              className="text-base font-bold text-white tracking-tight leading-snug line-clamp-2"
             >
-              <span className="text-accent-400">KPI</span> Platform
+              {/* The organisation the viewer is in, not a product name. Long
+                  names wrap to two lines rather than being cut mid-word. */}
+              {activeOrg?.name
+                ? <><span className="text-accent-400">{brandLead}</span>{brandRest}</>
+                : <><span className="text-accent-400">KPI</span> Platform</>}
             </motion.h2>
           )}
         </AnimatePresence>

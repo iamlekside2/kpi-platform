@@ -72,6 +72,12 @@ export function AuthProvider({ children }) {
     }
   }, [user, loadOrgRole]);
 
+  // The browser tab names the organisation too, so a second tab on another
+  // org is tellable apart. index.html keeps the neutral title until sign-in.
+  useEffect(() => {
+    document.title = activeOrg?.name || 'KPI Platform';
+  }, [activeOrg?.name]);
+
   // An admin can change someone's role while that person has the app open.
   // Without this the tab keeps the role it was given at login — a promoted
   // admin would keep seeing the employee dashboard until a full reload.
