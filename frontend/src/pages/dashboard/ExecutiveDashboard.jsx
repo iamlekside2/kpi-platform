@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend,
@@ -15,6 +15,7 @@ import {
 
 export default function ExecutiveDashboard() {
   const { activeOrg, orgRole } = useAuth();
+  const navigate = useNavigate();
   const [summary, setSummary] = useState(null);
   const [staff, setStaff] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -195,15 +196,19 @@ export default function ExecutiveDashboard() {
               </thead>
               <tbody>
                 {sortedStaff.map((m, i) => (
-                  <tr key={m.userId} className={i < sortedStaff.length - 1 ? 'border-b border-white/[0.04]' : ''}>
+                  <tr
+                    key={m.userId}
+                    onClick={() => navigate(`/staff/${m.userId}`)}
+                    className={`cursor-pointer hover:bg-white/[0.03] transition-colors ${i < sortedStaff.length - 1 ? 'border-b border-white/[0.04]' : ''}`}
+                  >
                     <td className="px-4 py-3 pl-6">
-                      <span className="text-sm font-medium text-white block">{m.name}</span>
+                      <span className="text-sm font-medium text-white block hover:text-accent-400 transition-colors">{m.name}</span>
                       <span className="text-[11px] text-slate-500 capitalize">{m.role}</span>
                     </td>
                     <td className="px-4 py-3 text-sm text-slate-400">{m.department || '--'}</td>
                     <td className="px-4 py-3">
                       {m.appraisal ? (
-                        <Link to={`/appraisals/${m.appraisal.id}`}>
+                        <Link to={`/appraisals/${m.appraisal.id}`} onClick={(e) => e.stopPropagation()}>
                           <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${STATUS_BADGES[m.appraisal.status] || 'bg-slate-500/10 text-slate-400'}`}>
                             {STATUS_LABELS[m.appraisal.status] || m.appraisal.status}
                           </span>
@@ -232,7 +237,7 @@ export default function ExecutiveDashboard() {
             </table>
           </div>
           <p className="text-[11px] text-slate-600 px-6 py-3">
-            Scores and grades come from completed appraisals; task counts from the Azure DevOps staff sync.
+            Select anyone to see their full record. Scores and grades come from completed appraisals; task counts from the Azure DevOps staff sync.
           </p>
         </motion.div>
       </div>

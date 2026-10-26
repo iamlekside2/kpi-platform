@@ -51,4 +51,21 @@ async function getAdminSummary(req, res) {
   }
 }
 
-module.exports = { getSummary, getTeam, getStaffPerformance, getAdminSummary };
+async function getEmployeePerformance(req, res) {
+  try {
+    const data = await analyticsService.getEmployeePerformance(
+      req.params.orgId,
+      req.params.userId,
+      req.user.userId
+    );
+    return res.json(data);
+  } catch (err) {
+    if (err.message === 'Forbidden') return res.status(403).json({ error: 'You cannot view this employee' });
+    if (err.message === 'Not a member') return res.status(403).json({ error: 'Not a member of this org' });
+    if (err.message === 'Employee not found') return res.status(404).json({ error: err.message });
+    console.error('Employee performance error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
+module.exports = { getSummary, getTeam, getStaffPerformance, getEmployeePerformance, getAdminSummary };

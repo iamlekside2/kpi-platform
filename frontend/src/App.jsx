@@ -12,6 +12,7 @@ import SettingsPage from './pages/settings/SettingsPage';
 import AppraisalsPage from './pages/appraisals/AppraisalsPage';
 import AppraisalDetailPage from './pages/appraisals/AppraisalDetailPage';
 import StaffPage from './pages/staff/StaffPage';
+import EmployeePerformancePage from './pages/staff/EmployeePerformancePage';
 import ProfilePage from './pages/profile/ProfilePage';
 import NotificationsPage from './pages/notifications/NotificationsPage';
 import AuditLogsPage from './pages/audit-logs/AuditLogsPage';
@@ -48,6 +49,7 @@ export default function App() {
       <Route path="/kpis" element={<ProtectedRoute><KPIsPage /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
       <Route path="/staff" element={<ProtectedRoute><StaffPage /></ProtectedRoute>} />
+      <Route path="/staff/:userId" element={<ProtectedRoute><EmployeePerformancePage /></ProtectedRoute>} />
       <Route path="/appraisals" element={<ProtectedRoute><AppraisalsPage /></ProtectedRoute>} />
       <Route path="/appraisals/:id" element={<ProtectedRoute><AppraisalDetailPage /></ProtectedRoute>} />
       <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
@@ -590,7 +591,9 @@ export default function StaffPage() {
                     </div>
                     <div>
                       <div className="text-sm font-semibold text-white flex items-center gap-2 flex-wrap">
-                        {m.name}
+                        <Link to={`/staff/${m.userId}`} className="hover:text-accent-400 transition-colors">
+                          {m.name}
+                        </Link>
                         {m.department && (
                           <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full border ${getDeptColor(m.department.slug)}`}>
                             {m.department.name}

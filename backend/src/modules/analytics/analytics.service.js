@@ -360,4 +360,101 @@ async function getAdminSummary(orgId, userId) {
   };
 }
 
-module.exports = { getOrgSummary, getTeamSummary, getStaffPerformance, getAdminSummary };
+// ── One employee's record (chairman/MD/admin drill-down) ─────
+// The executive dashboard shows a row per person; this is what sits
+// behind that row — every appraisal they have had, not just the latest,
+// plus their grade history, level trail and synced task counts.
+async function getEmployeePerformance(orgId, targetUserId, requesterId) {
+  const requester = await prisma.orgMember.findUnique({
+    where: { userId_orgId: { userId: requesterId, orgId } },
+    select: { role: true, departmentId: true },
+  });
+  if (!requester) throw new Error('Not a member');
+
+  const target = await prisma.orgMember.findUnique({
+    where: { userId_orgId: { userId: targetUserId, orgId } },
+    include: {
+      user: { select: { id: true, name: true, email: true, integrationEmail: true } },
+      department: { select: { id: true, name: true, slug: true } },
+    },
+  });
+  if (!target) throw new Error('Employee not found');
+
+  // Executives see anyone; a unit head sees their own department; everyone
+  // else only themselves.
+  const isExecutive = ['admin', 'md', 'chairman'].includes(requester.role);
+  const isTheirLead = requester.role === 'lead'
+    && requester.departmentId
+    && requester.departmentId === target.departmentId;
+  if (!isExecutive && !isTheirLead && targetUserId !== requesterId) {
+    throw new Error('Forbidden');
+  }
+
+  const [appraisals, workItems, levelChanges] = await Promise.all([
+    prisma.appraisal.findMany({
+      where: { orgId, employeeId: targetUserId },
+      orderBy: { reviewPeriodTo: 'desc' },
+      select: {
+        id: true, status: true, grade: true, finalScore: true, mdScore: true,
+        department: true, reviewPeriodFrom: true, reviewPeriodTo: true,
+        createdAt: true, updatedAt: true,
+      },
+    }),
+    prisma.memberWorkItems.findMany({
+      where: { orgId, userId: targetUserId },
+      orderBy: { periodTo: 'desc' },
+      take: 6,
+      select: {
+        totalItems: true, completedItems: true, activeItems: true,
+        totalStoryPoints: true, periodFrom: true, periodTo: true, syncedAt: true,
+      },
+    }),
+    prisma.levelChange.findMany({
+      where: { memberId: target.id },
+      orderBy: { createdAt: 'desc' },
+      include: { changedBy: { select: { name: true } } },
+    }),
+  ]);
+
+  const scored = appraisals.filter((a) => a.status === 'completed' && a.finalScore > 0);
+  const avgScore = scored.length > 0
+    ? Math.round((scored.reduce((sum, a) => sum + a.finalScore, 0) / scored.length) * 10) / 10
+    : 0;
+
+  const byGrade = { A: 0, B: 0, C: 0, D: 0 };
+  appraisals.forEach((a) => {
+    if (a.grade && byGrade[a.grade] !== undefined) byGrade[a.grade] += 1;
+  });
+
+  return {
+    employee: {
+      userId: target.userId,
+      name: target.user.name,
+      email: target.user.email,
+      role: target.role,
+      level: target.level,
+      staffType: target.staffType,
+      department: target.department || null,
+    },
+    summary: {
+      appraisalsTotal: appraisals.length,
+      appraisalsCompleted: scored.length,
+      avgScore,
+      latestGrade: appraisals.find((a) => a.grade)?.grade || null,
+      byGrade,
+    },
+    // Oldest first so a chart reads left to right
+    appraisals: [...appraisals].reverse(),
+    workItems,
+    levelChanges: levelChanges.map((c) => ({
+      id: c.id,
+      fromLevel: c.fromLevel,
+      toLevel: c.toLevel,
+      note: c.note,
+      changedBy: c.changedBy?.name || 'Unknown',
+      createdAt: c.createdAt,
+    })),
+  };
+}
+
+module.exports = { getOrgSummary, getTeamSummary, getStaffPerformance, getAdminSummary, getEmployeePerformance };
