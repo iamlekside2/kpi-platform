@@ -1,6 +1,6 @@
 const service = require('./appraisals.service');
 const prisma = require('../../config/db');
-const { notifyAppraisalCreated, notifyAppraisalSubmitted, notifyAppraisalReviewed, notifyAppraisalCompleted } = require('../notifications/notify');
+const { notifyAppraisalCreated, notifyAppraisalSubmitted, notifyAppraisalReviewed, notifyAppraisalCompleted, notifyAppraisalReturned } = require('../notifications/notify');
 const { auditAppraisalCreated, auditAppraisalUpdated, auditAppraisalStatusChanged, auditAppraisalDeleted } = require('../auditLogs/audit');
 
 // ── Helper: get user's org role ──
@@ -68,6 +68,122 @@ async function create(req, res) {
 }
 
 // GET /appraisals/org/:orgId — admin/lead see all, member sees only own
+// POST /appraisals/org/:orgId/cycle — raise appraisals for a whole
+// department, or the whole organisation, in one go.
+async function createCycle(req, res) {
+  try {
+    const { orgId } = req.params;
+    const { departmentId, employeeIds, reviewPeriodFrom, reviewPeriodTo } = req.body;
+
+    const role = await getUserRole(req.user.userId, orgId);
+    if (role !== 'admin' && role !== 'lead') {
+      return res.status(403).json({ error: 'Only admins and unit heads can raise a cycle' });
+    }
+    if (!reviewPeriodFrom || !reviewPeriodTo) {
+      return res.status(400).json({ error: 'A review period is required' });
+    }
+    if (new Date(reviewPeriodFrom) > new Date(reviewPeriodTo)) {
+      return res.status(400).json({ error: 'The review period ends before it starts' });
+    }
+
+    const me = await prisma.orgMember.findUnique({
+      where: { userId_orgId: { userId: req.user.userId, orgId } },
+      select: { departmentId: true },
+    });
+
+    // A unit head raises a cycle for their own department only
+    const where = { orgId };
+    if (role === 'lead') {
+      if (!me?.departmentId) {
+        return res.status(400).json({ error: 'Set your department before raising a cycle' });
+      }
+      where.departmentId = me.departmentId;
+    } else if (departmentId) {
+      where.departmentId = departmentId;
+    }
+
+    const candidates = await prisma.orgMember.findMany({ where, select: { userId: true } });
+    let targets = candidates.map((m) => m.userId);
+    if (Array.isArray(employeeIds) && employeeIds.length > 0) {
+      const allowed = new Set(targets);
+      targets = employeeIds.filter((id) => allowed.has(id));
+    }
+    if (targets.length === 0) {
+      return res.status(400).json({ error: 'Nobody matches that selection' });
+    }
+
+    const { created, skipped } = await service.createAppraisalCycle(orgId, {
+      employeeIds: targets,
+      reviewPeriodFrom,
+      reviewPeriodTo,
+    });
+
+    created.forEach((a) => {
+      notifyAppraisalCreated(a).catch(() => {});
+      auditAppraisalCreated(a, req.user.userId).catch(() => {});
+    });
+
+    return res.status(201).json({
+      createdCount: created.length,
+      skippedCount: skipped.length,
+      created: created.map((a) => ({ id: a.id, name: a.employee.name })),
+      skipped,
+    });
+  } catch (err) {
+    console.error('Create cycle error:', err);
+    return res.status(500).json({ error: 'Failed to raise the cycle' });
+  }
+}
+
+// POST /appraisals/:id/return — hand it back a stage with a reason
+async function returnAppraisal(req, res) {
+  try {
+    const appraisal = await service.getAppraisalById(req.params.id);
+    if (!appraisal) return res.status(404).json({ error: 'Appraisal not found' });
+
+    const reason = (req.body.reason || '').trim();
+    if (!reason) return res.status(400).json({ error: 'Say why you are sending it back' });
+
+    const previous = service.PREVIOUS_STAGE[appraisal.status];
+    if (!previous) {
+      return res.status(400).json({
+        error: appraisal.status === 'draft'
+          ? 'This is already with the employee'
+          : 'A completed appraisal cannot be sent back',
+      });
+    }
+
+    // Only whoever the appraisal is currently sitting with may return it
+    const role = await getUserRole(req.user.userId, appraisal.orgId);
+    let allowed = false;
+    if (appraisal.status === 'submitted') {
+      allowed = role === 'lead' || role === 'admin';
+      if (role === 'lead') {
+        const [me, them] = await Promise.all([
+          prisma.orgMember.findUnique({ where: { userId_orgId: { userId: req.user.userId, orgId: appraisal.orgId } }, select: { departmentId: true } }),
+          prisma.orgMember.findUnique({ where: { userId_orgId: { userId: appraisal.employeeId, orgId: appraisal.orgId } }, select: { departmentId: true } }),
+        ]);
+        if (me?.departmentId && me.departmentId !== them?.departmentId) allowed = false;
+      }
+    } else if (appraisal.status === 'unit_reviewed') {
+      allowed = await isHrOfficer(req.user.userId, appraisal.orgId);
+    } else if (appraisal.status === 'admin_reviewed') {
+      allowed = role === 'md';
+    }
+    if (!allowed) {
+      return res.status(403).json({ error: 'Only the person this appraisal is with can send it back' });
+    }
+
+    const updated = await service.returnAppraisal(req.params.id, reason);
+    notifyAppraisalReturned(updated, previous, reason).catch(() => {});
+    auditAppraisalStatusChanged(updated, appraisal.status, previous, req.user.userId).catch(() => {});
+    return res.json(updated);
+  } catch (err) {
+    console.error('Return appraisal error:', err);
+    return res.status(500).json({ error: 'Failed to send the appraisal back' });
+  }
+}
+
 async function getAll(req, res) {
   try {
     const role = await getUserRole(req.user.userId, req.params.orgId);
@@ -319,4 +435,4 @@ async function remove(req, res) {
   }
 }
 
-module.exports = { getFormStructure, create, getAll, getOne, getMine, updateEmployee, submit, updateUnitHead, updateAdmin, updateMd, remove };
+module.exports = { getFormStructure, create, createCycle, returnAppraisal, getAll, getOne, getMine, updateEmployee, submit, updateUnitHead, updateAdmin, updateMd, remove };

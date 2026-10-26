@@ -10,11 +10,13 @@ router.get('/form-structure', ctrl.getFormStructure);
 router.get('/org/:orgId', ctrl.getAll);
 router.get('/org/:orgId/my', ctrl.getMine);
 router.post('/org/:orgId', ctrl.create);
+router.post('/org/:orgId/cycle', ctrl.createCycle);
 
 // Single appraisal operations
 router.get('/:id', ctrl.getOne);
 router.patch('/:id/employee', ctrl.updateEmployee);
 router.post('/:id/submit', ctrl.submit);
+router.post('/:id/return', ctrl.returnAppraisal);
 router.patch('/:id/unit-head', ctrl.updateUnitHead);
 router.patch('/:id/admin', ctrl.updateAdmin);
 router.patch('/:id/md', ctrl.updateMd);

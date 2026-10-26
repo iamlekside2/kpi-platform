@@ -164,6 +164,11 @@ model Appraisal {
   // Section 2 — Admin comment
   adminComment    String            @default("")
 
+  // Why a reviewer sent this back a stage, kept so the person it returns to
+  // can see what to fix. Cleared when they resubmit.
+  returnReason    String            @default("")
+  returnedAt      DateTime?
+
   // Section 3 — MD overall comments & scoring
   mdComment       String            @default("")
   mdScore         Int               @default(0) // MD's score out of 100

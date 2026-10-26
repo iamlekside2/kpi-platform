@@ -161,6 +161,11 @@ export default function AppraisalDetailPage() {
   // once it is final the employee is shown their own result rather than
   // having to download the PDF to learn their grade.
   const canSeeOwnResult = isEmployee && status === 'completed';
+  // Only whoever the appraisal currently sits with can return it a stage
+  const canSendBack =
+    (status === 'submitted' && (isUnitHead || isAdmin))
+    || (status === 'unit_reviewed' && isHrOfficer)
+    || (status === 'admin_reviewed' && isMd);
 
   // What can each role EDIT? (chairman edits nothing)
   const canEditEmployee = isEmployee && status === 'draft';
@@ -235,6 +240,26 @@ export default function AppraisalDetailPage() {
       toast.success('Appraisal submitted for review!');
     } catch (err) {
       console.error('Submit failed:', err);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  // Hand the appraisal back a stage rather than delete and re-raise it
+  async function handleSendBack() {
+    const reason = window.prompt('Why are you sending this back? The person it goes to will see this.');
+    if (reason === null) return;
+    if (!reason.trim()) {
+      toast.error('A reason is required');
+      return;
+    }
+    setSaving(true);
+    try {
+      const { data } = await api.post(`/appraisals/${id}/return`, { reason: reason.trim() });
+      setAppraisal(data);
+      toast.success('Sent back');
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Could not send it back');
     } finally {
       setSaving(false);
     }
@@ -385,6 +410,17 @@ export default function AppraisalDetailPage() {
         </div>
 
         {/* ── SECTION 1: Self Assessment ── */}
+        {/* ── Why it came back, for whoever has to act on it again ── */}
+        {appraisal.returnReason && status !== 'completed' && (
+          <div className="mb-5 flex items-start gap-3 px-4 py-3 bg-amber-500/5 border border-amber-500/20 rounded-xl">
+            <Info className="w-4 h-4 text-amber-300 mt-0.5 shrink-0" />
+            <div>
+              <p className="text-sm text-amber-300 font-semibold">This appraisal was sent back</p>
+              <p className="text-xs text-amber-200/80 mt-0.5">{appraisal.returnReason}</p>
+            </div>
+          </div>
+        )}
+
         {/* ── The employee's own result, once it is final ── */}
         {activeSection === 'result' && canSeeOwnResult && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
@@ -768,10 +804,15 @@ export default function AppraisalDetailPage() {
                 placeholder={canEditUnitHead ? 'Your comments on this employee\'s performance...' : ''}
               />
               {canEditUnitHead && (
-                <div className="mt-3">
+                <div className="mt-3 flex flex-wrap gap-2">
                   <Button onClick={handleUnitHeadSave} disabled={saving}>
                     {saving ? 'Saving...' : 'Save Unit Head Review'}
                   </Button>
+                  {canSendBack && (
+                    <Button variant="secondary" onClick={handleSendBack} disabled={saving}>
+                      Send back to employee
+                    </Button>
+                  )}
                 </div>
               )}
             </div>
@@ -798,10 +839,15 @@ export default function AppraisalDetailPage() {
                   placeholder={canEditAdmin ? 'Your comments on this appraisal...' : ''}
                 />
                 {canEditAdmin && (
-                  <div className="mt-3">
+                  <div className="mt-3 flex flex-wrap gap-2">
                     <Button onClick={handleAdminSave} disabled={saving}>
                       {saving ? 'Saving...' : 'Save HR Comment'}
                     </Button>
+                    {canSendBack && (
+                      <Button variant="secondary" onClick={handleSendBack} disabled={saving}>
+                        Send back to unit head
+                      </Button>
+                    )}
                   </div>
                 )}
               </div>
@@ -868,6 +914,11 @@ export default function AppraisalDetailPage() {
                   <Button onClick={handleMdSave} disabled={saving}>
                     {saving ? 'Saving...' : 'Save & Complete Appraisal'}
                   </Button>
+                  {canSendBack && (
+                    <Button variant="secondary" onClick={handleSendBack} disabled={saving}>
+                      Send back to HR
+                    </Button>
+                  )}
                 </div>
               )}
             </div>

@@ -56,6 +56,15 @@ async function getUnitHeads(orgId, employeeId) {
   return allLeads.map((m) => m.user);
 }
 
+// The one named HR officer, as a list so it reads like the other lookups
+async function getHrOfficer(orgId) {
+  const org = await prisma.organisation.findUnique({
+    where: { id: orgId },
+    select: { hrOfficer: { select: { id: true, name: true, email: true } } },
+  });
+  return org?.hrOfficer ? [org.hrOfficer] : [];
+}
+
 async function getAdmins(orgId) {
   const admins = await prisma.orgMember.findMany({
     where: { orgId, role: 'admin' },
@@ -252,6 +261,65 @@ async function notifyAppraisalReviewed(appraisal, stage) {
   );
 }
 
+// ── Sent back a stage → tell whoever has to act on it again ──
+const STAGE_OWNER = {
+  draft: 'employee',
+  submitted: 'unit_head',
+  unit_reviewed: 'hr',
+};
+
+async function notifyAppraisalReturned(appraisal, returnedTo, reason) {
+  const employee = appraisal.employee?.email
+    ? appraisal.employee
+    : await getUser(appraisal.employeeId);
+  const employeeName = employee?.name || 'An employee';
+  const owner = STAGE_OWNER[returnedTo];
+
+  // Back to the employee: it is their own appraisal to fix
+  if (owner === 'employee') {
+    if (!employee) return;
+    await deliver({
+      user: employee,
+      orgId: appraisal.orgId,
+      type: 'appraisal_created',
+      title: 'Appraisal Sent Back To You',
+      message: `Your appraisal was returned for changes: ${reason}`,
+      appraisalId: appraisal.id,
+      email: {
+        subject: 'Your appraisal has been sent back — KPI Platform',
+        heading: 'Appraisal Sent Back',
+        body: `Your appraisal has been returned so you can make changes before it goes on. The reason given was: <strong>${reason}</strong>`,
+        ctaLabel: 'Open Your Appraisal',
+        footnote: 'Submitting again sends it back to your unit head.',
+      },
+    });
+    return;
+  }
+
+  const recipients = owner === 'unit_head'
+    ? await getUnitHeads(appraisal.orgId, appraisal.employeeId)
+    : await getHrOfficer(appraisal.orgId);
+
+  await Promise.all(
+    recipients.map((u) =>
+      deliver({
+        user: u,
+        orgId: appraisal.orgId,
+        type: 'appraisal_reviewed',
+        title: 'Appraisal Sent Back To You',
+        message: `${employeeName}'s appraisal was returned to you: ${reason}`,
+        appraisalId: appraisal.id,
+        email: {
+          subject: `${employeeName}'s appraisal has been sent back to you — KPI Platform`,
+          heading: 'Appraisal Sent Back',
+          body: `<strong>${employeeName}</strong>'s appraisal has been returned to your stage. The reason given was: <strong>${reason}</strong>`,
+          ctaLabel: 'Open Appraisal',
+        },
+      })
+    )
+  );
+}
+
 // ── Completed → tell the employee their grade ──
 async function notifyAppraisalCompleted(appraisal) {
   const employee = appraisal.employee?.email
@@ -286,4 +354,5 @@ module.exports = {
   notifyAppraisalSubmitted,
   notifyAppraisalReviewed,
   notifyAppraisalCompleted,
+  notifyAppraisalReturned,
 };

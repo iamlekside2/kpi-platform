@@ -187,6 +187,70 @@ function getFormStructure(department, orgDepartments) {
 }
 
 // ── Create a new appraisal ──
+// Raise a whole cycle at once. Anyone who already has an appraisal covering
+// exactly this period is skipped rather than given a duplicate, so running
+// the same cycle twice is safe.
+async function createAppraisalCycle(orgId, { employeeIds, reviewPeriodFrom, reviewPeriodTo }) {
+  const from = new Date(reviewPeriodFrom);
+  const to = new Date(reviewPeriodTo);
+
+  const members = await prisma.orgMember.findMany({
+    where: { orgId, userId: { in: employeeIds } },
+    include: {
+      user: { select: { id: true, name: true, email: true } },
+      department: { select: { slug: true } },
+    },
+  });
+
+  const existing = await prisma.appraisal.findMany({
+    where: { orgId, employeeId: { in: employeeIds }, reviewPeriodFrom: from, reviewPeriodTo: to },
+    select: { employeeId: true },
+  });
+  const alreadyHas = new Set(existing.map((a) => a.employeeId));
+
+  const created = [];
+  const skipped = [];
+  for (const m of members) {
+    if (alreadyHas.has(m.userId)) {
+      skipped.push({ userId: m.userId, name: m.user.name, reason: 'already has one for this period' });
+      continue;
+    }
+    const appraisal = await prisma.appraisal.create({
+      data: {
+        orgId,
+        employeeId: m.userId,
+        // The question set follows the employee's own department
+        department: m.department?.slug || 'general',
+        reviewPeriodFrom: from,
+        reviewPeriodTo: to,
+        status: 'draft',
+      },
+      include: { employee: { select: { id: true, name: true, email: true } } },
+    });
+    created.push(appraisal);
+  }
+
+  return { created, skipped };
+}
+
+// Send an appraisal back a stage with a reason, so work already written is
+// kept rather than deleted and raised again.
+const PREVIOUS_STAGE = {
+  submitted: 'draft',
+  unit_reviewed: 'submitted',
+  admin_reviewed: 'unit_reviewed',
+};
+
+async function returnAppraisal(id, reason) {
+  const appraisal = await prisma.appraisal.findUnique({ where: { id } });
+  const previous = PREVIOUS_STAGE[appraisal.status];
+  return prisma.appraisal.update({
+    where: { id },
+    data: { status: previous, returnReason: reason, returnedAt: new Date() },
+    include: { employee: { select: { id: true, name: true, email: true } } },
+  });
+}
+
 async function createAppraisal(orgId, employeeId, data) {
   return prisma.appraisal.create({
     data: {
@@ -275,7 +339,8 @@ async function updateEmployeeSection(id, data) {
 async function submitAppraisal(id) {
   return prisma.appraisal.update({
     where: { id },
-    data: { status: 'submitted' },
+    // Resubmitting clears the note explaining why it came back
+    data: { status: 'submitted', returnReason: '', returnedAt: null },
     include: { employee: { select: { id: true, name: true, email: true } } },
   });
 }
@@ -372,6 +437,9 @@ module.exports = {
   calculateFinalScore,
   getGrade,
   createAppraisal,
+  createAppraisalCycle,
+  returnAppraisal,
+  PREVIOUS_STAGE,
   getOrgAppraisals,
   getDepartmentAppraisals,
   getAppraisalById,

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
+import { useToast } from '../../context/ToastContext';
 import PageWrapper from '../../components/layout/PageWrapper';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
@@ -32,6 +33,7 @@ const DEPT_ICONS = {
 
 export default function AppraisalsPage() {
   const { orgRole, activeOrg } = useAuth();
+  const toast = useToast();
   const [appraisals, setAppraisals] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
@@ -42,6 +44,14 @@ export default function AppraisalsPage() {
   const [members, setMembers] = useState([]);
   const [selectedEmployee, setSelectedEmployee] = useState('');
   const [exportingExcel, setExportingExcel] = useState(false);
+  // Raising a whole cycle at once, optionally for one department
+  const [showCycle, setShowCycle] = useState(false);
+  const [cycleFrom, setCycleFrom] = useState('');
+  const [cycleTo, setCycleTo] = useState('');
+  const [cycleDeptId, setCycleDeptId] = useState('');
+  const [orgDepartments, setOrgDepartments] = useState([]);
+  const [raising, setRaising] = useState(false);
+  const [cycleResult, setCycleResult] = useState(null);
   const navigate = useNavigate();
 
   const canCreate = orgRole === 'admin' || orgRole === 'lead';
@@ -86,6 +96,39 @@ export default function AppraisalsPage() {
       } catch (err) {
         console.error('Failed to load members:', err);
       }
+    }
+  }
+
+  async function openCycleModal() {
+    setCycleResult(null);
+    setShowCycle(true);
+    if (activeOrg && orgDepartments.length === 0) {
+      try {
+        const { data } = await api.get(`/departments/org/${activeOrg.id}`);
+        setOrgDepartments(data);
+      } catch (err) {
+        console.error('Failed to load departments:', err);
+      }
+    }
+  }
+
+  async function handleRaiseCycle(e) {
+    e.preventDefault();
+    setRaising(true);
+    setCycleResult(null);
+    try {
+      const { data } = await api.post(`/appraisals/org/${activeOrg.id}/cycle`, {
+        departmentId: cycleDeptId || undefined,
+        reviewPeriodFrom: cycleFrom,
+        reviewPeriodTo: cycleTo,
+      });
+      setCycleResult(data);
+      loadAppraisals(activeOrg.id);
+      toast.success(`Raised ${data.createdCount} appraisal${data.createdCount === 1 ? '' : 's'}`);
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Could not raise the cycle');
+    } finally {
+      setRaising(false);
     }
   }
 
@@ -152,13 +195,90 @@ export default function AppraisalsPage() {
               </Button>
             )}
             {canCreate && (
-              <Button onClick={openCreateModal}>+ New Appraisal</Button>
+              <>
+                <Button variant="outline" onClick={openCycleModal}>Start a cycle</Button>
+                <Button onClick={openCreateModal}>+ New Appraisal</Button>
+              </>
             )}
           </div>
         </div>
 
         {/* Create Modal */}
         <AnimatePresence>
+          {showCycle && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+              onClick={() => setShowCycle(false)}
+            >
+              <motion.div
+                initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 20, scale: 0.95 }}
+                className="bg-surface-900 border border-white/[0.06] rounded-2xl p-6 w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <h3 className="text-lg font-bold text-white mb-1">Start a review cycle</h3>
+                <p className="text-xs text-slate-500 mb-4">
+                  Raises one appraisal per person for the same period. Anyone who already has one
+                  for these exact dates is skipped, so running it twice is safe.
+                </p>
+
+                <form onSubmit={handleRaiseCycle}>
+                  <div className="grid grid-cols-2 gap-3 mb-4">
+                    <Input label="Period From" type="date" value={cycleFrom} onChange={(e) => setCycleFrom(e.target.value)} />
+                    <Input label="Period To" type="date" value={cycleTo} onChange={(e) => setCycleTo(e.target.value)} />
+                  </div>
+
+                  <div className="mb-4">
+                    <label className="text-xs font-medium text-slate-400 uppercase tracking-wider block mb-2">Who</label>
+                    <select
+                      value={cycleDeptId}
+                      onChange={(e) => setCycleDeptId(e.target.value)}
+                      disabled={orgRole === 'lead'}
+                      className="w-full px-4 py-2.5 bg-slate-800/50 border border-white/[0.06] rounded-lg text-sm text-slate-100 outline-none focus:border-accent-500/50 transition-all cursor-pointer disabled:opacity-60"
+                    >
+                      <option value="" className="bg-slate-800">Everyone in the organisation</option>
+                      {orgDepartments.map((d) => (
+                        <option key={d.id} value={d.id} className="bg-slate-800">{d.name}</option>
+                      ))}
+                    </select>
+                    {orgRole === 'lead' && (
+                      <p className="text-[11px] text-slate-500 mt-1.5">
+                        A unit head raises a cycle for their own department.
+                      </p>
+                    )}
+                  </div>
+
+                  {cycleResult && (
+                    <div className="mb-4 px-3 py-2.5 bg-slate-800/50 border border-white/[0.06] rounded-lg">
+                      <p className="text-xs text-emerald-400 font-semibold">
+                        {cycleResult.createdCount} raised
+                        {cycleResult.skippedCount > 0 && `, ${cycleResult.skippedCount} skipped`}
+                      </p>
+                      {cycleResult.skipped?.length > 0 && (
+                        <p className="text-[11px] text-slate-500 mt-1">
+                          Already had one: {cycleResult.skipped.map((x) => x.name).join(', ')}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="flex gap-2">
+                    <Button type="button" variant="secondary" onClick={() => setShowCycle(false)} fullWidth>
+                      {cycleResult ? 'Done' : 'Cancel'}
+                    </Button>
+                    <Button type="submit" disabled={raising || !cycleFrom || !cycleTo} fullWidth>
+                      {raising ? 'Raising...' : 'Raise appraisals'}
+                    </Button>
+                  </div>
+                </form>
+              </motion.div>
+            </motion.div>
+          )}
+
           {showCreate && (
             <motion.div
               initial={{ opacity: 0 }}
