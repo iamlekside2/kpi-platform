@@ -17,6 +17,12 @@ if ((Get-WebAppPoolState 'kpi-api').Value -eq 'Started') { Stop-WebAppPool 'kpi-
 # give the node process a moment to exit and release file locks
 Start-Sleep -Seconds 5
 
+# Everything between here and the finally runs with the API down. Whatever
+# happens, the pool is started again before this script exits — a failed
+# deploy should fail the build, not leave production serving 503s.
+$deployError = $null
+try {
+
 Write-Host '==> Syncing backend'
 # /MIR mirrors the checkout; exclude the live-only files (.env, logs)
 robocopy "$Src\backend" "$Live\backend" /MIR /NFL /NDL /NJH /NJS `
@@ -37,12 +43,38 @@ Push-Location "$Live\backend"
 # so deploy with db push: it diffs the live DB against schema.prisma and fails
 # loudly instead of applying destructive changes.
 npx prisma db push --skip-generate
-if ($LASTEXITCODE -ne 0) { Pop-Location; throw 'prisma db push failed' }
+if ($LASTEXITCODE -ne 0) {
+    Pop-Location
+    throw @'
+prisma db push failed.
+
+If the log above says the change cannot be executed without data loss, that
+is this guard doing its job: a column or table is being dropped. Review the
+change, then apply it deliberately on the VPS:
+
+  cd C:\apps\kpi-platform\backend
+  npx prisma db push --skip-generate --accept-data-loss
+
+and re-run the pipeline. Do not add --accept-data-loss to this script; it
+would let any future schema slip drop live data unattended.
+'@
+}
 Pop-Location
 
-Write-Host '==> Starting backend app pool'
-Start-WebAppPool 'kpi-api'
-Start-Sleep -Seconds 5
+}
+catch {
+    $deployError = $_
+}
+finally {
+    Write-Host '==> Starting backend app pool'
+    if ((Get-WebAppPoolState 'kpi-api').Value -ne 'Started') { Start-WebAppPool 'kpi-api' }
+    Start-Sleep -Seconds 5
+}
+
+if ($deployError) {
+    Write-Host 'Deploy failed — app pool restarted on the previous build.' -ForegroundColor Yellow
+    throw $deployError
+}
 
 Write-Host '==> Health check'
 $r = Invoke-WebRequest 'http://kpi.calmglobal.com/api/health' -UseBasicParsing -TimeoutSec 30
