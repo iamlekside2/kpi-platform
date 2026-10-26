@@ -174,6 +174,20 @@ async function auditMemberStaffTypeChanged(member, oldStaffType, userId) {
   });
 }
 
+async function auditMemberHrChanged(member, oldIsHr, userId) {
+  const name = member.name || member.user?.name || member.userId;
+  await createAuditLog({
+    userId,
+    orgId: member.orgId,
+    action: 'update',
+    entityType: 'OrgMember',
+    entityId: member.id,
+    description: member.isHr ? `Designated ${name} as HR` : `Removed HR designation from ${name}`,
+    oldValues: { isHr: oldIsHr },
+    newValues: { isHr: member.isHr },
+  });
+}
+
 async function auditMemberRemoved(member, userId) {
   const name = member.user?.name || member.user?.email || member.userId;
   await createAuditLog({
@@ -200,5 +214,6 @@ module.exports = {
   auditMemberDepartmentChanged,
   auditMemberLevelChanged,
   auditMemberStaffTypeChanged,
+  auditMemberHrChanged,
   auditMemberRemoved,
 };

@@ -44,6 +44,10 @@ model Organisation {
 model OrgMember {
   id           String       @id @default(uuid())
   role         String       // admin | lead | member | md | chairman
+  // HR is a named posting, not a side effect of the admin permission: an
+  // admin in Tech administers the system but never sees the HR comment.
+  // The person who creates the org starts as HR; admins designate others.
+  isHr         Boolean      @default(false)
   level        Int?         // staff grade level: 1, 2, 3 ... (null = not set)
   staffType    String       @default("permanent") // permanent | contract
   user         User         @relation(fields: [userId], references: [id])

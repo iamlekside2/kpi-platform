@@ -8,11 +8,11 @@ import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import {
   ShieldCheck, UsersRound, Briefcase, Landmark, User,
-  Building2, TrendingUp, Pencil, Trash2,
+  Building2, TrendingUp, Pencil, Trash2, BadgeCheck, Plus, X,
 } from 'lucide-react';
 
 const ROLE_CONFIG = {
-  admin: { label: 'HR / Admin', color: 'bg-accent-500/10 text-accent-400 border-accent-500/20', Icon: ShieldCheck, description: 'Full access: manage staff, review all appraisals, HR & MD comments' },
+  admin: { label: 'Administrator', color: 'bg-accent-500/10 text-accent-400 border-accent-500/20', Icon: ShieldCheck, description: 'Full access: manage staff, KPIs, departments and settings. Does not grant HR.' },
   lead: { label: 'Unit Head', color: 'bg-amber-500/10 text-amber-400 border-amber-500/20', Icon: UsersRound, description: 'Can review employee appraisals and provide unit head scoring' },
   md: { label: 'MD', color: 'bg-purple-500/10 text-purple-400 border-purple-500/20', Icon: Briefcase, description: 'Sees everything; provides the final MD comments and scoring on appraisals' },
   chairman: { label: 'Chairman', color: 'bg-rose-500/10 text-rose-400 border-rose-500/20', Icon: Landmark, description: 'View-only access to everything: dashboards, KPIs, appraisals, staff, audit log' },
@@ -60,6 +60,9 @@ export default function StaffPage() {
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [filterDept, setFilterDept] = useState('all');
   const [filterStaffType, setFilterStaffType] = useState('all');
+  const [showDepts, setShowDepts] = useState(false);
+  const [newDeptName, setNewDeptName] = useState('');
+  const [savingDept, setSavingDept] = useState(false);
 
   const isAdmin = orgRole === 'admin';
 
@@ -170,6 +173,54 @@ export default function StaffPage() {
     }
   }
 
+  async function handleHrToggle(memberId, isHr) {
+    try {
+      const { data } = await api.patch(`/orgs/${activeOrg.id}/members/${memberId}/hr`, { isHr });
+      setMembers(members.map((m) => m.id === memberId ? { ...m, isHr: data.isHr } : m));
+      loadOrgRole(); // your own HR flag may have just changed
+      toast.success(data.isHr ? `${data.name} is now HR` : `${data.name} is no longer HR`);
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to update HR designation');
+    }
+  }
+
+  async function handleCreateDept(e) {
+    e.preventDefault();
+    if (!newDeptName.trim()) return;
+    setSavingDept(true);
+    try {
+      const { data } = await api.post(`/departments/org/${activeOrg.id}`, { name: newDeptName.trim() });
+      setDepartments([...departments, data]);
+      setNewDeptName('');
+      toast.success(`${data.name} added`);
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to create department');
+    } finally {
+      setSavingDept(false);
+    }
+  }
+
+  async function handleDeleteDept(dept) {
+    const inUse = members.filter((m) => m.department?.id === dept.id).length;
+    const ok = await toast.confirm({
+      title: `Delete ${dept.name}?`,
+      message: inUse > 0
+        ? `${inUse} staff member${inUse > 1 ? 's are' : ' is'} in this department and will become unassigned.`
+        : 'This department has no staff assigned.',
+      confirmLabel: 'Delete',
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      await api.delete(`/departments/${dept.id}`);
+      setDepartments(departments.filter((d) => d.id !== dept.id));
+      loadMembers();
+      toast.success(`${dept.name} deleted`);
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to delete department');
+    }
+  }
+
   async function openLevelHistory(member) {
     if (historyFor === member.id) {
       setHistoryFor(null);
@@ -237,9 +288,71 @@ export default function StaffPage() {
             </p>
           </div>
           {isAdmin && (
-            <Button onClick={() => setShowInvite(true)}>+ Add Staff</Button>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setShowDepts(!showDepts)}>
+                Manage Departments
+              </Button>
+              <Button onClick={() => setShowInvite(true)}>+ Add Staff</Button>
+            </div>
           )}
         </div>
+
+        {/* Department manager — HR, Marketing, Support etc. are job functions,
+            created here and assigned to staff; they are not permissions. */}
+        {isAdmin && showDepts && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            className="mb-6 p-4 bg-surface-900/60 border border-white/[0.06] rounded-xl overflow-hidden"
+          >
+            <h3 className="text-sm font-semibold text-white mb-1">Departments</h3>
+            <p className="text-[11px] text-slate-500 mb-3">
+              Add the functions your organisation actually has — HR, Marketing, Support, Finance. Assigning
+              someone to HR does not give them permissions, and making someone an Administrator does not make them HR.
+            </p>
+
+            <form onSubmit={handleCreateDept} className="flex gap-2 mb-3">
+              <input
+                type="text"
+                value={newDeptName}
+                onChange={(e) => setNewDeptName(e.target.value)}
+                placeholder="e.g. Human Resources"
+                className="flex-1 px-3 py-2 bg-slate-800/50 border border-white/[0.06] rounded-lg text-sm text-slate-100 placeholder-slate-600 outline-none focus:border-accent-500/50 transition-all"
+              />
+              <Button type="submit" variant="secondary" disabled={savingDept || !newDeptName.trim()}>
+                <span className="flex items-center gap-1">
+                  <Plus className="w-3.5 h-3.5" />
+                  {savingDept ? 'Adding...' : 'Add'}
+                </span>
+              </Button>
+            </form>
+
+            <div className="flex flex-wrap gap-2">
+              {departments.map((d) => {
+                const count = members.filter((m) => m.department?.id === d.id).length;
+                return (
+                  <span
+                    key={d.id}
+                    className={`inline-flex items-center gap-2 text-[11px] font-medium px-2.5 py-1 rounded-full border ${getDeptColor(d.slug)}`}
+                  >
+                    {d.name}
+                    <span className="text-slate-500">{count}</span>
+                    <button
+                      onClick={() => handleDeleteDept(d)}
+                      className="text-slate-500 hover:text-red-400 transition-colors cursor-pointer"
+                      title={`Delete ${d.name}`}
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                );
+              })}
+              {departments.length === 0 && (
+                <span className="text-[11px] text-slate-500">No departments yet.</span>
+              )}
+            </div>
+          </motion.div>
+        )}
 
         {/* Department filter tabs */}
         {departments.length > 0 && (
@@ -487,6 +600,12 @@ export default function StaffPage() {
                         <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full border ${(STAFF_TYPE_CONFIG[m.staffType] || STAFF_TYPE_CONFIG.permanent).color}`}>
                           {(STAFF_TYPE_CONFIG[m.staffType] || STAFF_TYPE_CONFIG.permanent).label}
                         </span>
+                        {m.isHr && (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border bg-teal-500/10 text-teal-300 border-teal-500/20">
+                            <BadgeCheck className="w-3 h-3" />
+                            HR
+                          </span>
+                        )}
                       </div>
                       <div className="text-xs text-slate-500">{m.email}</div>
                     </div>
@@ -588,6 +707,15 @@ export default function StaffPage() {
                               title="Change role"
                             >
                               <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => handleHrToggle(m.id, !m.isHr)}
+                              className={`p-1.5 rounded-lg transition-all cursor-pointer ${m.isHr
+                                ? 'text-teal-400 hover:bg-teal-500/10'
+                                : 'text-slate-500 hover:text-teal-400 hover:bg-white/[0.06]'}`}
+                              title={m.isHr ? 'Remove HR designation' : 'Designate as HR'}
+                            >
+                              <BadgeCheck className="w-3.5 h-3.5" />
                             </button>
                             <button
                               onClick={() => handleRemove(m.id, m.name)}

@@ -1,6 +1,6 @@
 const orgsService = require('./orgs.service');
 const prisma = require('../../config/db');
-const { auditMemberInvited, auditMemberRoleChanged, auditMemberDepartmentChanged, auditMemberLevelChanged, auditMemberStaffTypeChanged, auditMemberRemoved } = require('../auditLogs/audit');
+const { auditMemberInvited, auditMemberRoleChanged, auditMemberDepartmentChanged, auditMemberLevelChanged, auditMemberStaffTypeChanged, auditMemberHrChanged, auditMemberRemoved } = require('../auditLogs/audit');
 
 async function createOrg(req, res) {
   try {
@@ -229,6 +229,31 @@ async function updateMemberStaffType(req, res) {
   }
 }
 
+async function updateMemberHr(req, res) {
+  try {
+    const member = await orgsService.updateMemberHr(
+      req.params.id,
+      req.params.memberId,
+      req.body.isHr,
+      req.user.userId
+    );
+
+    if (member.previousIsHr !== member.isHr) {
+      const enriched = { ...member, orgId: req.params.id };
+      auditMemberHrChanged(enriched, member.previousIsHr, req.user.userId).catch(() => {});
+    }
+
+    return res.json(member);
+  } catch (err) {
+    const clientErrors = ['Only admins can designate HR', 'Member not found', 'At least one person must be HR'];
+    if (clientErrors.includes(err.message)) {
+      return res.status(400).json({ error: err.message });
+    }
+    console.error('Update HR error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
 async function getMemberLevelHistory(req, res) {
   try {
     const history = await orgsService.getMemberLevelHistory(
@@ -265,4 +290,4 @@ async function updateThemeColor(req, res) {
   }
 }
 
-module.exports = { createOrg, getOrg, inviteToOrg, getUserOrgs, getMembers, updateMemberRole, updateMemberDepartment, updateMemberLevel, updateMemberStaffType, getMemberLevelHistory, removeMember, updateThemeColor };
+module.exports = { createOrg, getOrg, inviteToOrg, getUserOrgs, getMembers, updateMemberRole, updateMemberDepartment, updateMemberLevel, updateMemberStaffType, updateMemberHr, getMemberLevelHistory, removeMember, updateThemeColor };

@@ -6,7 +6,8 @@ const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
-  const [orgRole, setOrgRole] = useState(null); // admin | lead | member
+  const [orgRole, setOrgRole] = useState(null); // admin | lead | member | md | chairman
+  const [isHr, setIsHr] = useState(false); // HR posting, independent of orgRole
   const [activeOrg, setActiveOrg] = useState(null);
   const [loading, setLoading] = useState(true);
   const didRestore = useRef(false);
@@ -21,6 +22,7 @@ export function AuthProvider({ children }) {
       // depend on activeOrg don't refetch on every re-check.
       setActiveOrg((prev) => (prev && JSON.stringify(prev) === JSON.stringify(next) ? prev : next));
       setOrgRole(next.role || 'member');
+      setIsHr(Boolean(next.isHr));
     } catch {
       // ignore — orgs might not be set up yet
     }
@@ -60,6 +62,7 @@ export function AuthProvider({ children }) {
       loadOrgRole();
     } else {
       setOrgRole(null);
+      setIsHr(false);
       setActiveOrg(null);
     }
   }, [user, loadOrgRole]);
@@ -110,7 +113,7 @@ export function AuthProvider({ children }) {
   return (
     <AuthContext.Provider value={{
       user, setUser, loading, login, register, logout, isAuthenticated: !!user,
-      orgRole, activeOrg, loadOrgRole,
+      orgRole, isHr, activeOrg, loadOrgRole,
     }}>
       {children}
     </AuthContext.Provider>

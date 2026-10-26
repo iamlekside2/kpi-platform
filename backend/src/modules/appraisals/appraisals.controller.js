@@ -11,6 +11,16 @@ async function getUserRole(userId, orgId) {
   return member?.role || null;
 }
 
+// ── Helper: is this user HR for the org? ──
+// Deliberately separate from the admin permission — an admin in Tech
+// administers the platform but has no business writing the HR comment.
+async function isHrFor(userId, orgId) {
+  const member = await prisma.orgMember.findUnique({
+    where: { userId_orgId: { userId, orgId } },
+  });
+  return Boolean(member?.isHr);
+}
+
 // GET /appraisals/form-structure?department=tech
 async function getFormStructure(req, res) {
   const department = req.query.department || 'tech';
@@ -165,9 +175,9 @@ async function updateAdmin(req, res) {
     const appraisal = await service.getAppraisalById(req.params.id);
     if (!appraisal) return res.status(404).json({ error: 'Appraisal not found' });
 
-    const role = await getUserRole(req.user.userId, appraisal.orgId);
-    if (role !== 'admin') {
-      return res.status(403).json({ error: 'Only administrators can add admin comments' });
+    const isHr = await isHrFor(req.user.userId, appraisal.orgId);
+    if (!isHr) {
+      return res.status(403).json({ error: 'Only HR can add the HR comment' });
     }
     if (appraisal.status !== 'unit_reviewed' && appraisal.status !== 'admin_reviewed') {
       return res.status(400).json({ error: 'Appraisal must be unit-head reviewed first' });

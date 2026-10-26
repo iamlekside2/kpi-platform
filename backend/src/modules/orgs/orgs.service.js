@@ -24,6 +24,8 @@ async function createOrg({ name, userId }) {
       members: {
         create: {
           role: 'admin',
+          // The founder sets the org up, so they hold HR until they hand it over
+          isHr: true,
           userId,
         },
       },
@@ -164,6 +166,7 @@ async function getUserOrgs(userId) {
   return memberships.map((m) => ({
     ...m.org,
     role: m.role,
+    isHr: m.isHr,
     memberCount: m.org._count.members,
     kpiCount: m.org._count.kpis,
   }));
@@ -194,6 +197,7 @@ async function getOrgMembers(orgId, requesterId) {
   return members.map((m) => ({
     id: m.id,
     role: m.role,
+    isHr: m.isHr,
     level: m.level,
     staffType: m.staffType,
     lastLevelChange: m.levelChanges[0] || null,
@@ -298,6 +302,44 @@ async function updateMemberLevel(orgId, memberId, { level, note = '' }, requeste
     name: updated.user.name,
     email: updated.user.email,
     previousLevel: target.level,
+  };
+}
+
+// ── Designate (or clear) HR ──
+// Separate from role on purpose: HR is a posting, admin is a permission.
+async function updateMemberHr(orgId, memberId, isHr, requesterId) {
+  const requester = await prisma.orgMember.findUnique({
+    where: { userId_orgId: { userId: requesterId, orgId } },
+  });
+  if (!requester || requester.role !== 'admin') {
+    throw new Error('Only admins can designate HR');
+  }
+
+  const target = await prisma.orgMember.findUnique({ where: { id: memberId } });
+  if (!target || target.orgId !== orgId) throw new Error('Member not found');
+
+  // Never leave an org with nobody who can complete the HR stage
+  if (target.isHr && !isHr) {
+    const others = await prisma.orgMember.count({
+      where: { orgId, isHr: true, id: { not: memberId } },
+    });
+    if (others === 0) throw new Error('At least one person must be HR');
+  }
+
+  const updated = await prisma.orgMember.update({
+    where: { id: memberId },
+    data: { isHr: Boolean(isHr) },
+    include: { user: { select: { id: true, email: true, name: true } } },
+  });
+
+  return {
+    id: updated.id,
+    role: updated.role,
+    isHr: updated.isHr,
+    userId: updated.userId,
+    name: updated.user.name,
+    email: updated.user.email,
+    previousIsHr: target.isHr,
   };
 }
 
@@ -421,6 +463,7 @@ module.exports = {
   updateMemberDepartment,
   updateMemberLevel,
   updateMemberStaffType,
+  updateMemberHr,
   getMemberLevelHistory,
   removeMember,
   updateThemeColor,

@@ -15,7 +15,7 @@ const STEPS = ['Name Your Organisation', 'Pick Templates', 'Invite Teammates'];
 const INVITE_ROLES = [
   { key: 'member', label: 'Employee' },
   { key: 'lead', label: 'Unit Head' },
-  { key: 'admin', label: 'HR / Admin' },
+  { key: 'admin', label: 'Administrator' },
   { key: 'md', label: 'MD' },
   { key: 'chairman', label: 'Chairman' },
 ];
