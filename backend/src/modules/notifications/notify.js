@@ -55,6 +55,18 @@ async function getUnitHeads(orgId, employeeId) {
 
   if (scoped.length > 0) return scoped.map((m) => m.user);
 
+  // A department can be headed by an administrator rather than someone with
+  // the lead role — HR is headed by the HR officer, who needs admin rights
+  // for staff management and so cannot also hold 'lead'. They can already
+  // score the review; without this they were never told it was waiting.
+  const deptAdmins = employee?.departmentId
+    ? await prisma.orgMember.findMany({
+        where: { orgId, role: 'admin', departmentId: employee.departmentId },
+        include: { user: { select: { id: true, name: true, email: true } } },
+      })
+    : [];
+  if (deptAdmins.length > 0) return deptAdmins.map((m) => m.user);
+
   const allLeads = await prisma.orgMember.findMany({
     where: { orgId, role: 'lead' },
     include: { user: { select: { id: true, name: true, email: true } } },
