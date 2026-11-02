@@ -61,6 +61,7 @@ export default function AppraisalDetailPage() {
   // Local form state
   const [selfAssessment, setSelfAssessment] = useState({});
   const [selfRatings, setSelfRatings] = useState({});
+  const [selfRatingReasons, setSelfRatingReasons] = useState({});
   const [technicalAnswers, setTechnicalAnswers] = useState({});
   const [unitHeadScores, setUnitHeadScores] = useState({});
   const [unitHeadComment, setUnitHeadComment] = useState('');
@@ -85,6 +86,7 @@ export default function AppraisalDetailPage() {
         // Load existing data into form state
         setSelfAssessment(a.selfAssessment || {});
         setSelfRatings(a.selfRatings || {});
+        setSelfRatingReasons(a.selfRatingReasons || {});
         setTechnicalAnswers(a.technicalAnswers || {});
         setUnitHeadScores(a.unitHeadScores || {});
         setUnitHeadComment(a.unitHeadComment || '');
@@ -215,6 +217,7 @@ export default function AppraisalDetailPage() {
     try {
       const { data } = await api.patch(`/appraisals/${id}/employee`, {
         selfAssessment,
+        selfRatingReasons,
         selfRatings,
         technicalAnswers,
       });
@@ -553,23 +556,36 @@ export default function AppraisalDetailPage() {
 
               <div className="space-y-2">
                 {formStructure.selfRatingAttributes.map((attr) => (
-                  <div key={attr.key} className="flex items-center justify-between p-3 bg-slate-800/30 border border-white/[0.04] rounded-lg">
-                    <span className="text-xs text-slate-300 flex-1 pr-4">{attr.label}</span>
-                    <div className="flex items-center gap-2">
+                  <div key={attr.key} className="p-3 bg-slate-800/30 border border-white/[0.04] rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-slate-300 flex-1 pr-4">{attr.label}</span>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          min="0"
+                          max={attr.maxScore}
+                          className="w-16 px-2 py-1 bg-slate-800/80 border border-white/[0.08] rounded-lg text-sm text-center text-white outline-none focus:border-accent-500/50 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                          value={selfRatings[attr.key] ?? ''}
+                          onChange={(e) => {
+                            const val = Math.min(Number(e.target.value), attr.maxScore);
+                            setSelfRatings({ ...selfRatings, [attr.key]: val });
+                          }}
+                          disabled={!canEditEmployee}
+                        />
+                        <span className="text-[10px] text-slate-600 w-6">/{attr.maxScore}</span>
+                      </div>
+                    </div>
+                    {/* The CR form carries a Give Reason column; the (T) form does not */}
+                    {formStructure.selfRatingReasonsEnabled && (canEditEmployee || selfRatingReasons[attr.key]) && (
                       <input
-                        type="number"
-                        min="0"
-                        max={attr.maxScore}
-                        className="w-16 px-2 py-1 bg-slate-800/80 border border-white/[0.08] rounded-lg text-sm text-center text-white outline-none focus:border-accent-500/50 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
-                        value={selfRatings[attr.key] ?? ''}
-                        onChange={(e) => {
-                          const val = Math.min(Number(e.target.value), attr.maxScore);
-                          setSelfRatings({ ...selfRatings, [attr.key]: val });
-                        }}
+                        type="text"
+                        placeholder={canEditEmployee ? 'Give reason' : ''}
+                        className="mt-2 w-full px-3 py-1.5 bg-slate-800/60 border border-white/[0.06] rounded-lg text-xs text-slate-200 placeholder-slate-600 outline-none focus:border-accent-500/40 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                        value={selfRatingReasons[attr.key] || ''}
+                        onChange={(e) => setSelfRatingReasons({ ...selfRatingReasons, [attr.key]: e.target.value })}
                         disabled={!canEditEmployee}
                       />
-                      <span className="text-[10px] text-slate-600 w-6">/{attr.maxScore}</span>
-                    </div>
+                    )}
                   </div>
                 ))}
               </div>

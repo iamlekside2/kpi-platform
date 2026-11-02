@@ -97,30 +97,20 @@ const DEPARTMENTS = [
   { key: 'general', name: 'General / Other', icon: '📋' },
 ];
 
+// There are two paper forms, not three. Product Development fills the one
+// marked (T); every other department fills (CR), whose job-specific block is
+// the Sales and Marketing section. A department with no questions at all was
+// never part of the process.
 function getDeptQuestions(department) {
-  switch (department) {
-    case 'tech':
-      return TECH_QUESTIONS;
-    case 'sales':
-      return SALES_QUESTIONS;
-    case 'general':
-    default:
-      return []; // No department-specific questions for general
-  }
+  return department === 'tech' ? TECH_QUESTIONS : SALES_QUESTIONS;
 }
 
-// Falls back to the built-in set only when the org's own departments
-// aren't available, so HR/Marketing/Support read as themselves rather
-// than collapsing into "General".
-function getDeptLabel(department, orgDepartments) {
-  const match = (orgDepartments || []).find((d) => d.slug === department);
-  if (match) return match.name;
-  switch (department) {
-    case 'tech': return 'Technical (Product Development)';
-    case 'sales': return 'Sales & Marketing';
-    case 'general': return 'General';
-    default: return 'General';
-  }
+// Names the block the way the paper form does, so the heading matches the
+// questions underneath it rather than the employee's own department.
+function getDeptLabel(department) {
+  return department === 'tech'
+    ? 'Technical (Product Development)'
+    : 'Sales & Marketing';
 }
 
 // ── Scoring validation ──
@@ -165,10 +155,12 @@ function getFormStructure(department, orgDepartments) {
     : DEPARTMENTS.map((d) => ({ key: d.key, name: d.name, hasQuestions: getDeptQuestions(d.key).length > 0 }));
 
   return {
+    // The CR form has a Give Reason column beside each self-rating
+    selfRatingReasonsEnabled: (department || 'tech') !== 'tech',
     departments,
     selfRatingAttributes: SELF_RATING_ATTRIBUTES,
     departmentQuestions: getDeptQuestions(department || 'tech'),
-    departmentLabel: getDeptLabel(department || 'tech', orgDepartments),
+    departmentLabel: getDeptLabel(department || 'tech'),
     selfAssessmentQuestions: SELF_ASSESSMENT_QUESTIONS,
     unitHeadAttributes: UNIT_HEAD_ATTRIBUTES,
     scoring: {
@@ -261,6 +253,7 @@ async function createAppraisal(orgId, employeeId, data) {
       reviewPeriodTo: new Date(data.reviewPeriodTo),
       selfAssessment: data.selfAssessment || {},
       selfRatings: data.selfRatings || {},
+      selfRatingReasons: data.selfRatingReasons || {},
       technicalAnswers: data.technicalAnswers || {},
       status: 'draft',
     },
@@ -325,6 +318,7 @@ async function updateEmployeeSection(id, data) {
   const updateData = {};
   if (data.selfAssessment !== undefined) updateData.selfAssessment = data.selfAssessment;
   if (data.selfRatings !== undefined) updateData.selfRatings = data.selfRatings;
+  if (data.selfRatingReasons !== undefined) updateData.selfRatingReasons = data.selfRatingReasons;
   if (data.technicalAnswers !== undefined) updateData.technicalAnswers = data.technicalAnswers;
   if (data.status) updateData.status = data.status;
 

@@ -153,6 +153,9 @@ model Appraisal {
 
   // Section 1 — Employee self-rating (attribute scores out of 10)
   selfRatings     Json              @default("{}") // { "quantity_of_work": 8, "quality_of_work": 7, ... }
+  // The CR form has a "Give Reason" column beside each self-rating; the (T)
+  // form does not. Same keys as selfRatings.
+  selfRatingReasons Json            @default("{}")
 
   // Section 1 — Department-specific answers (tech questions OR sales questions)
   technicalAnswers Json             @default("{}") // key-value pairs
