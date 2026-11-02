@@ -309,7 +309,42 @@ async function updateUnitHead(req, res) {
     const appraisal = await service.getAppraisalById(req.params.id);
     if (!appraisal) return res.status(404).json({ error: 'Appraisal not found' });
 
+    if (appraisal.employeeId === req.user.userId) {
+      return res.status(403).json({ error: 'You cannot review your own appraisal' });
+    }
+
     const role = await getUserRole(req.user.userId, appraisal.orgId);
+
+    // A unit head's own appraisal has nobody above them in their own
+    // department, so this stage belongs to the MD rather than to another lead.
+    const employee = await prisma.orgMember.findUnique({
+      where: { userId_orgId: { userId: appraisal.employeeId, orgId: appraisal.orgId } },
+      select: { role: true },
+    });
+    if (employee?.role === 'lead') {
+      if (role !== 'md' && role !== 'admin') {
+        return res.status(403).json({ error: "A unit head's own appraisal is reviewed by the MD" });
+      }
+      if (appraisal.status !== 'submitted') {
+        return res.status(400).json({ error: 'Appraisal must be submitted before unit head review' });
+      }
+      const scores = req.body.unitHeadScores;
+      const check = service.validateUnitHeadScores(scores);
+      if (check.invalid.length > 0) {
+        return res.status(400).json({ error: `Out of range: ${check.invalid.join(', ')}` });
+      }
+      if (check.missing.length > 0) {
+        return res.status(400).json({
+          error: `Score every attribute before saving. ${check.missing.length} still unscored: ${check.missing.join(', ')}`,
+          missing: check.missing,
+        });
+      }
+      const done = await service.updateUnitHeadReview(req.params.id, req.user.userId, req.body);
+      notifyAppraisalReviewed(done, 'unit_head').catch(() => {});
+      auditAppraisalStatusChanged(done, 'submitted', 'unit_reviewed', req.user.userId).catch(() => {});
+      return res.json(done);
+    }
+
     // Role alone was enough, so any unit head could score any department's
     // staff. A lead must lead the department the employee is in.
     if (role === 'lead') {
@@ -362,6 +397,9 @@ async function updateAdmin(req, res) {
     const appraisal = await service.getAppraisalById(req.params.id);
     if (!appraisal) return res.status(404).json({ error: 'Appraisal not found' });
 
+    if (appraisal.employeeId === req.user.userId) {
+      return res.status(403).json({ error: 'You cannot review your own appraisal' });
+    }
     if (!(await isHrOfficer(req.user.userId, appraisal.orgId))) {
       return res.status(403).json({ error: 'Only the named HR officer can add the HR comment' });
     }
@@ -387,6 +425,10 @@ async function updateMd(req, res) {
   try {
     const appraisal = await service.getAppraisalById(req.params.id);
     if (!appraisal) return res.status(404).json({ error: 'Appraisal not found' });
+
+    if (appraisal.employeeId === req.user.userId) {
+      return res.status(403).json({ error: 'You cannot review your own appraisal' });
+    }
 
     const role = await getUserRole(req.user.userId, appraisal.orgId);
     // The MD's own section. An admin may stand in only where the org has

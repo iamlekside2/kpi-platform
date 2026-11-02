@@ -37,8 +37,14 @@ function getUser(userId) {
 async function getUnitHeads(orgId, employeeId) {
   const employee = await prisma.orgMember.findUnique({
     where: { userId_orgId: { userId: employeeId, orgId } },
-    select: { departmentId: true },
+    select: { departmentId: true, role: true },
   });
+
+  // A unit head's own appraisal has nobody above them in their department:
+  // the only lead there is the person being reviewed. It goes to the MD.
+  if (employee?.role === 'lead') {
+    return getByRole(orgId, 'md');
+  }
 
   const scoped = employee?.departmentId
     ? await prisma.orgMember.findMany({
