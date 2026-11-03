@@ -1,14 +1,15 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import PageWrapper from '../../components/layout/PageWrapper';
 import Button from '../../components/ui/Button';
+import SendBackModal, { sectionsForStage } from '../../components/appraisal/SendBackModal';
 import {
   FileText, DollarSign, Code2, Boxes, UsersRound, Building2,
-  Eye, Info, Target, BarChart3, Trophy,
+  Eye, Info, Target, BarChart3, Trophy, CornerUpLeft,
 } from 'lucide-react';
 
 const STATUS_LABELS = {
@@ -55,6 +56,7 @@ export default function AppraisalDetailPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [activeSection, setActiveSection] = useState(null); // set after load based on role
+  const [showSendBack, setShowSendBack] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [workItemData, setWorkItemData] = useState(null);
 
@@ -202,6 +204,19 @@ export default function AppraisalDetailPage() {
   const deptLabel = formStructure?.departmentLabel || 'Department';
   const hasDeptQuestions = formStructure?.departmentQuestions?.length > 0;
 
+  // Who the appraisal lands with when it goes back a stage, and which of
+  // their sections they can be asked to revisit.
+  const sendBackTarget = status === 'submitted'
+    ? { name: appraisal?.employee?.name || 'the employee', roleLabel: 'them' }
+    : status === 'unit_reviewed'
+      ? { name: appraisal?.reviewer?.name || 'the unit head', roleLabel: 'the unit head' }
+      : { name: 'HR', roleLabel: 'HR' };
+
+  const sendBackSections = sectionsForStage(status, {
+    jobSectionLabel: hasDeptQuestions ? deptLabel : null,
+    reasonsColumn: Boolean(formStructure?.selfRatingReasonsEnabled),
+  });
+
   // Build visible tabs based on role
   const SECTIONS = [
     ...(canSeeSection1 ? [{ key: 'section1', label: 'Self Assessment', Icon: FileText }] : []),
@@ -255,18 +270,13 @@ export default function AppraisalDetailPage() {
   }
 
   // Hand the appraisal back a stage rather than delete and re-raise it
-  async function handleSendBack() {
-    const reason = window.prompt('Why are you sending this back? The person it goes to will see this.');
-    if (reason === null) return;
-    if (!reason.trim()) {
-      toast.error('A reason is required');
-      return;
-    }
+  async function handleSendBack(reason) {
     setSaving(true);
     try {
       const { data } = await api.post(`/appraisals/${id}/return`, { reason: reason.trim() });
+      setShowSendBack(false);
       setAppraisal(data);
-      toast.success('Sent back');
+      toast.success(`Sent back to ${data.employee?.name || 'them'}`);
     } catch (err) {
       toast.error(err.response?.data?.error || 'Could not send it back');
     } finally {
@@ -383,6 +393,15 @@ export default function AppraisalDetailPage() {
             <Button variant="outline" onClick={handleExportPDF} disabled={exporting}>
               {exporting ? 'Exporting...' : 'Download PDF'}
             </Button>
+            {/* Sits here rather than only inside a review tab: whoever the
+                appraisal is with can send it back, and that is not always
+                someone who can edit the tab it used to be buried in. */}
+            {canSendBack && (
+              <Button variant="secondary" onClick={() => setShowSendBack(true)} disabled={saving}>
+                <CornerUpLeft className="w-4 h-4 mr-1.5" />
+                Send back
+              </Button>
+            )}
             {canEditEmployee && (
               <>
                 <Button variant="secondary" onClick={handleSaveDraft} disabled={saving}>
@@ -393,6 +412,19 @@ export default function AppraisalDetailPage() {
             )}
           </div>
         </div>
+
+        <AnimatePresence>
+          {showSendBack && (
+            <SendBackModal
+              recipientName={sendBackTarget.name}
+              recipientRoleLabel={sendBackTarget.roleLabel}
+              sections={sendBackSections}
+              saving={saving}
+              onCancel={() => setShowSendBack(false)}
+              onConfirm={handleSendBack}
+            />
+          )}
+        </AnimatePresence>
 
         {/* Role info banner for staff */}
         {role === 'member' && !isEmployee && (
@@ -831,7 +863,7 @@ export default function AppraisalDetailPage() {
                     {saving ? 'Saving...' : 'Save Unit Head Review'}
                   </Button>
                   {canSendBack && (
-                    <Button variant="secondary" onClick={handleSendBack} disabled={saving}>
+                    <Button variant="secondary" onClick={() => setShowSendBack(true)} disabled={saving}>
                       Send back to employee
                     </Button>
                   )}
@@ -866,7 +898,7 @@ export default function AppraisalDetailPage() {
                       {saving ? 'Saving...' : 'Save HR Comment'}
                     </Button>
                     {canSendBack && (
-                      <Button variant="secondary" onClick={handleSendBack} disabled={saving}>
+                      <Button variant="secondary" onClick={() => setShowSendBack(true)} disabled={saving}>
                         Send back to unit head
                       </Button>
                     )}
@@ -937,7 +969,7 @@ export default function AppraisalDetailPage() {
                     {saving ? 'Saving...' : 'Save & Complete Appraisal'}
                   </Button>
                   {canSendBack && (
-                    <Button variant="secondary" onClick={handleSendBack} disabled={saving}>
+                    <Button variant="secondary" onClick={() => setShowSendBack(true)} disabled={saving}>
                       Send back to HR
                     </Button>
                   )}
