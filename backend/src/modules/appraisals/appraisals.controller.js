@@ -293,6 +293,31 @@ async function submit(req, res) {
       });
     }
 
+    // The written sections were never checked, so an appraisal could go to a
+    // unit head with every question blank. A department with no job-specific
+    // block returns nothing here and is unaffected.
+    const blankDiscussion = service.validateSelfAssessment(appraisal.selfAssessment);
+    if (blankDiscussion.length > 0) {
+      return res.status(400).json({
+        error: `Answer every discussion point before submitting. ${blankDiscussion.length} still blank.`,
+        section: 'self-assessment',
+        missing: blankDiscussion,
+      });
+    }
+
+    const blankJobSection = service.validateDepartmentAnswers(
+      appraisal.department,
+      appraisal.technicalAnswers
+    );
+    if (blankJobSection.length > 0) {
+      const label = service.getDeptLabel(appraisal.department);
+      return res.status(400).json({
+        error: `Answer every question in the ${label} section before submitting. ${blankJobSection.length} still blank.`,
+        section: 'department',
+        missing: blankJobSection,
+      });
+    }
+
     const updated = await service.submitAppraisal(req.params.id);
     notifyAppraisalSubmitted(updated).catch(() => {});
     auditAppraisalStatusChanged(updated, 'draft', 'submitted', req.user.userId).catch(() => {});

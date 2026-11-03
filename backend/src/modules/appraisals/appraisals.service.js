@@ -97,20 +97,26 @@ const DEPARTMENTS = [
   { key: 'general', name: 'General / Other', icon: '📋' },
 ];
 
-// There are two paper forms, not three. Product Development fills the one
-// marked (T); every other department fills (CR), whose job-specific block is
-// the Sales and Marketing section. A department with no questions at all was
-// never part of the process.
+// Two paper forms, and only two job-specific blocks between them: (T) for
+// Product Development, and the Sales and Marketing section of (CR).
+//
+// Everyone else fills the parts of (CR) that apply to any role — the A1
+// discussion points and the ratings — and no job-specific block at all. They
+// used to be handed the sales questions, which asked Brand, HR and Support
+// for their average transaction value and cost-per-lead. People sensibly
+// left it blank, and nothing stopped them submitting that way.
 function getDeptQuestions(department) {
-  return department === 'tech' ? TECH_QUESTIONS : SALES_QUESTIONS;
+  if (department === 'tech') return TECH_QUESTIONS;
+  if (department === 'sales') return SALES_QUESTIONS;
+  return [];
 }
 
 // Names the block the way the paper form does, so the heading matches the
 // questions underneath it rather than the employee's own department.
 function getDeptLabel(department) {
-  return department === 'tech'
-    ? 'Technical (Product Development)'
-    : 'Sales & Marketing';
+  if (department === 'tech') return 'Technical (Product Development)';
+  if (department === 'sales') return 'Sales & Marketing';
+  return '';
 }
 
 // ── Scoring validation ──
@@ -139,6 +145,26 @@ function validateSelfRatings(scores) {
 
 function validateUnitHeadScores(scores) {
   return missingScores(UNIT_HEAD_ATTRIBUTES, scores);
+}
+
+// Written answers were never checked at all, so an appraisal could be
+// submitted with every question blank and only the ratings filled. Two
+// people did exactly that before this existed.
+function missingAnswers(questions, answers) {
+  const given = answers || {};
+  return questions
+    .filter((q) => !String(given[q.key] ?? '').trim())
+    .map((q) => q.label);
+}
+
+function validateSelfAssessment(answers) {
+  return missingAnswers(SELF_ASSESSMENT_QUESTIONS, answers);
+}
+
+// Empty for a department with no job-specific block, so those staff are
+// never held up by a section they are not shown.
+function validateDepartmentAnswers(department, answers) {
+  return missingAnswers(getDeptQuestions(department), answers);
 }
 
 // ── Return form structure ──
@@ -428,6 +454,9 @@ module.exports = {
   getFormStructure,
   validateSelfRatings,
   validateUnitHeadScores,
+  validateSelfAssessment,
+  validateDepartmentAnswers,
+  getDeptLabel,
   calculateFinalScore,
   getGrade,
   createAppraisal,

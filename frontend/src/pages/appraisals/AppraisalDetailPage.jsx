@@ -235,6 +235,7 @@ export default function AppraisalDetailPage() {
     try {
       await api.patch(`/appraisals/${id}/employee`, {
         selfAssessment,
+        selfRatingReasons,
         selfRatings,
         technicalAnswers,
       });
@@ -242,7 +243,12 @@ export default function AppraisalDetailPage() {
       setAppraisal(data);
       toast.success('Appraisal submitted for review!');
     } catch (err) {
-      console.error('Submit failed:', err);
+      // A refused submit used to log to the console and otherwise do nothing,
+      // so the button simply appeared not to work.
+      const data = err.response?.data;
+      if (data?.section === 'department') setActiveSection('department');
+      else if (data?.section === 'self-assessment') setActiveSection('section1');
+      toast.error(data?.error || 'Could not submit. Please try again.');
     } finally {
       setSaving(false);
     }
