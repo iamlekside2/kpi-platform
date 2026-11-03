@@ -2,6 +2,16 @@ const authService = require('./auth.service');
 
 const isProd = process.env.NODE_ENV === 'production' || process.env.VERCEL === '1';
 
+// Errors the service raised on purpose carry their own status and the form
+// field they belong to; anything else is a real fault and must not leak out.
+function sendAuthError(res, err, context) {
+  if (err.authField) {
+    return res.status(err.status || 400).json({ error: err.message, field: err.authField });
+  }
+  console.error(`${context} error:`, err);
+  return res.status(500).json({ error: 'Internal server error' });
+}
+
 const COOKIE_OPTIONS = {
   httpOnly: true,
   secure: isProd,
@@ -14,12 +24,12 @@ async function register(req, res) {
   try {
     const { email, name, password } = req.body;
 
-    if (!email || !name || !password) {
-      return res.status(400).json({ error: 'Email, name, and password are required' });
-    }
+    if (!email) return res.status(400).json({ error: 'Email is required', field: 'email' });
+    if (!name) return res.status(400).json({ error: 'Name is required', field: 'name' });
+    if (!password) return res.status(400).json({ error: 'Password is required', field: 'password' });
 
     if (password.length < 6) {
-      return res.status(400).json({ error: 'Password must be at least 6 characters' });
+      return res.status(400).json({ error: 'Password must be at least 6 characters', field: 'password' });
     }
 
     const { user, accessToken, refreshToken } = await authService.registerUser({
@@ -32,16 +42,7 @@ async function register(req, res) {
 
     return res.status(201).json({ user, accessToken });
   } catch (err) {
-    if (err.message === 'Email already registered') {
-      return res.status(409).json({ error: err.message });
-    }
-    if (err.message === 'Company already registered') {
-      return res.status(409).json({
-        error: 'Your company is already on KPI Platform. Ask your administrator to add you from the Staff page.',
-      });
-    }
-    console.error('Register error:', err);
-    return res.status(500).json({ error: 'Internal server error' });
+    return sendAuthError(res, err, 'Register');
   }
 }
 
@@ -49,9 +50,8 @@ async function login(req, res) {
   try {
     const { email, password } = req.body;
 
-    if (!email || !password) {
-      return res.status(400).json({ error: 'Email and password are required' });
-    }
+    if (!email) return res.status(400).json({ error: 'Enter your email address', field: 'email' });
+    if (!password) return res.status(400).json({ error: 'Enter your password', field: 'password' });
 
     const { user, accessToken, refreshToken } = await authService.loginUser({
       email,
@@ -62,11 +62,7 @@ async function login(req, res) {
 
     return res.json({ user, accessToken });
   } catch (err) {
-    if (err.message === 'Invalid email or password') {
-      return res.status(401).json({ error: err.message });
-    }
-    console.error('Login error:', err);
-    return res.status(500).json({ error: 'Internal server error' });
+    return sendAuthError(res, err, 'Login');
   }
 }
 
@@ -99,20 +95,16 @@ async function forgotPassword(req, res) {
   try {
     const { email } = req.body;
     if (!email) {
-      return res.status(400).json({ error: 'Email is required' });
+      return res.status(400).json({ error: 'Enter your email address', field: 'email' });
     }
 
-    const result = await authService.forgotPassword(email);
+    await authService.forgotPassword(email);
 
     return res.json({
       message: 'A password reset link has been sent to your email.',
     });
   } catch (err) {
-    if (err.message === 'No account found with this email') {
-      return res.status(404).json({ error: err.message });
-    }
-    console.error('Forgot password error:', err);
-    return res.status(500).json({ error: 'Internal server error' });
+    return sendAuthError(res, err, 'Forgot password');
   }
 }
 

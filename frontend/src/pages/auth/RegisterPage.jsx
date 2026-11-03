@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { AlertCircle } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { useToast } from '../../context/ToastContext';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
 
@@ -11,29 +11,41 @@ export default function RegisterPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  // { message, field } — see LoginPage; the API names the field at fault.
+  const [error, setError] = useState(null);
   const { register } = useAuth();
-  const toast = useToast();
   const navigate = useNavigate();
+
+  function clearError(field) {
+    setError((e) => (e && (e.field === field || !e.field) ? null : e));
+  }
 
   async function handleSubmit(e) {
     e.preventDefault();
+    setError(null);
 
     if (password.length < 6) {
-      toast.error('Password must be at least 6 characters');
+      setError({ message: 'Password must be at least 6 characters', field: 'password' });
       return;
     }
 
     setSubmitting(true);
 
     try {
-      await register(name, email, password);
+      await register(name, email.trim(), password);
       navigate('/onboarding');
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Registration failed');
+      const data = err.response?.data;
+      setError({
+        message: data?.error || 'Could not create your account. Please try again.',
+        field: data?.field || null,
+      });
     } finally {
       setSubmitting(false);
     }
   }
+
+  const fieldError = (field) => (error?.field === field ? error.message : undefined);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-surface-950 px-4">
@@ -54,30 +66,43 @@ export default function RegisterPage() {
             <p className="text-sm text-slate-400">Get started with KPI Platform</p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-1">
+          {error && !error.field && (
+            <div className="flex items-start gap-2 mb-5 px-3 py-2.5 rounded-lg bg-red-500/10 border border-red-500/20">
+              <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-px" />
+              <p className="text-xs text-red-300 leading-relaxed">{error.message}</p>
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} noValidate className="space-y-1">
             <Input
               label="Full Name"
               type="text"
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) => { setName(e.target.value); clearError('name'); }}
+              error={fieldError('name')}
+              autoComplete="name"
               placeholder="John Doe"
-              required
             />
             <Input
               label="Email"
               type="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => { setEmail(e.target.value); clearError('email'); }}
+              error={fieldError('email')}
+              autoComplete="username"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
               placeholder="you@company.com"
-              required
             />
             <Input
               label="Password"
               type="password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => { setPassword(e.target.value); clearError('password'); }}
+              error={fieldError('password')}
+              autoComplete="new-password"
               placeholder="At least 6 characters"
-              required
             />
             <div className="pt-2">
               <Button type="submit" fullWidth disabled={submitting}>

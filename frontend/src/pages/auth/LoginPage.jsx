@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { AlertCircle } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { useToast } from '../../context/ToastContext';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
 
@@ -10,23 +10,37 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  // { message, field } — the API names the field that was wrong so the message
+  // sits on that input instead of in a toast the person has to read in time.
+  const [error, setError] = useState(null);
   const { login } = useAuth();
-  const toast = useToast();
   const navigate = useNavigate();
+
+  // Typing in the field the API complained about clears the complaint.
+  function clearError(field) {
+    setError((e) => (e && (e.field === field || !e.field) ? null : e));
+  }
 
   async function handleSubmit(e) {
     e.preventDefault();
+    setError(null);
     setSubmitting(true);
 
     try {
-      await login(email, password);
+      await login(email.trim(), password);
       navigate('/dashboard');
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Login failed');
+      const data = err.response?.data;
+      setError({
+        message: data?.error || 'Could not sign in. Please try again.',
+        field: data?.field || null,
+      });
     } finally {
       setSubmitting(false);
     }
   }
+
+  const fieldError = (field) => (error?.field === field ? error.message : undefined);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-surface-950 px-4">
@@ -47,22 +61,35 @@ export default function LoginPage() {
             <p className="text-sm text-slate-400">Welcome back to KPI Platform</p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-1">
+          {/* A failure with no field of its own (network, server) still needs saying */}
+          {error && !error.field && (
+            <div className="flex items-start gap-2 mb-5 px-3 py-2.5 rounded-lg bg-red-500/10 border border-red-500/20">
+              <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-px" />
+              <p className="text-xs text-red-300 leading-relaxed">{error.message}</p>
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} noValidate className="space-y-1">
             <Input
               label="Email"
               type="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => { setEmail(e.target.value); clearError('email'); }}
+              error={fieldError('email')}
+              autoComplete="username"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
               placeholder="you@company.com"
-              required
             />
             <Input
               label="Password"
               type="password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => { setPassword(e.target.value); clearError('password'); }}
+              error={fieldError('password')}
+              autoComplete="current-password"
               placeholder="Your password"
-              required
             />
             <div className="flex justify-end -mt-1 mb-2">
               <Link to="/forgot-password" className="text-xs text-slate-500 hover:text-accent-400 transition-colors">

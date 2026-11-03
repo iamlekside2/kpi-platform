@@ -2,28 +2,32 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import api from '../../services/api';
-import { useToast } from '../../context/ToastContext';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
-import { KeyRound } from 'lucide-react';
+import { KeyRound, AlertCircle } from 'lucide-react';
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
   const [success, setSuccess] = useState('');
+  const [error, setError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
-  const toast = useToast();
 
   async function handleSubmit(e) {
     e.preventDefault();
     setSuccess('');
+    setError(null);
     setSubmitting(true);
 
     try {
-      const { data } = await api.post('/auth/forgot-password', { email });
+      const { data } = await api.post('/auth/forgot-password', { email: email.trim() });
       setSuccess(data.message || 'If an account exists with that email, a password reset link has been sent.');
       setEmail('');
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Something went wrong. Please try again.');
+      const data = err.response?.data;
+      setError({
+        message: data?.error || 'Something went wrong. Please try again.',
+        field: data?.field || null,
+      });
     } finally {
       setSubmitting(false);
     }
@@ -58,15 +62,26 @@ export default function ForgotPasswordPage() {
             </motion.div>
           )}
 
+          {error && !error.field && (
+            <div className="flex items-start gap-2 mb-4 px-3 py-2.5 rounded-lg bg-red-500/10 border border-red-500/20">
+              <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-px" />
+              <p className="text-xs text-red-300 leading-relaxed">{error.message}</p>
+            </div>
+          )}
+
           {!success ? (
-            <form onSubmit={handleSubmit} className="space-y-1">
+            <form onSubmit={handleSubmit} noValidate className="space-y-1">
               <Input
                 label="Email Address"
                 type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => { setEmail(e.target.value); setError(null); }}
+                error={error?.field === 'email' ? error.message : undefined}
+                autoComplete="username"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
                 placeholder="you@company.com"
-                required
               />
               <div className="pt-2">
                 <Button type="submit" fullWidth disabled={submitting || !email}>

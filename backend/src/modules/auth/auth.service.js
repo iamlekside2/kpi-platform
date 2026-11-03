@@ -1,7 +1,7 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const prisma = require('../../config/db');
-const { normaliseEmail, findUserByEmail } = require('../../utils/email');
+const { normaliseEmail, isValidEmail, findUserByEmail } = require('../../utils/email');
 const env = require('../../config/env');
 const { sendWelcomeEmail, sendPasswordResetEmail, sendPasswordChangedEmail } = require('../../utils/mailer');
 
@@ -14,6 +14,20 @@ const PUBLIC_EMAIL_DOMAINS = new Set([
   'hotmail.com', 'live.com', 'msn.com', 'icloud.com', 'me.com', 'aol.com',
   'proton.me', 'protonmail.com', 'mail.com', 'gmx.com', 'zoho.com',
 ]);
+
+// A sign-in failure says which of the two fields was wrong rather than hiding
+// both behind one message. The usual argument against that is account
+// enumeration, which does not apply here: this is an invite-only internal
+// tool, nobody outside the company can register, and a colleague who mistypes
+// their address deserves to be told so instead of hunting for a password that
+// was never the problem. `field` lets the form put the message on the input
+// that caused it.
+function authError(message, field, status = 401) {
+  const err = new Error(message);
+  err.authField = field;
+  err.status = status;
+  return err;
+}
 
 async function hashPassword(password) {
   return bcrypt.hash(password, SALT_ROUNDS);
@@ -49,9 +63,14 @@ function verifyRefreshToken(token) {
 
 async function registerUser({ email: rawEmail, name, password }) {
   const email = normaliseEmail(rawEmail);
+
+  if (!isValidEmail(email)) {
+    throw authError('That does not look like an email address', 'email', 400);
+  }
+
   const existing = await findUserByEmail(prisma, email);
   if (existing) {
-    throw new Error('Email already registered');
+    throw authError('An account already uses that email address', 'email', 409);
   }
 
   // One self-registration per company domain: once someone from a company
@@ -64,7 +83,11 @@ async function registerUser({ email: rawEmail, name, password }) {
       select: { id: true },
     });
     if (sameDomainUser) {
-      throw new Error('Company already registered');
+      throw authError(
+        'Your company is already on the platform. Ask your administrator to add you from the Staff page.',
+        'email',
+        409
+      );
     }
   }
 
@@ -83,15 +106,23 @@ async function registerUser({ email: rawEmail, name, password }) {
   return { user, accessToken, refreshToken };
 }
 
-async function loginUser({ email, password }) {
+async function loginUser({ email: rawEmail, password }) {
+  const email = normaliseEmail(rawEmail);
+
+  if (!isValidEmail(email)) {
+    throw authError('That does not look like an email address', 'email', 400);
+  }
+
+  // Case-insensitive, so Tolu@CalmGlobal.com and tolu@calmglobal.com are the
+  // same account however the person typed it.
   const user = await findUserByEmail(prisma, email);
   if (!user) {
-    throw new Error('Invalid email or password');
+    throw authError('No account found for that email address', 'email', 404);
   }
 
   const valid = await comparePassword(password, user.password);
   if (!valid) {
-    throw new Error('Invalid email or password');
+    throw authError('That password is not correct', 'password');
   }
 
   const accessToken = generateAccessToken(user);
@@ -135,10 +166,16 @@ function verifyResetToken(token) {
   return payload;
 }
 
-async function forgotPassword(email) {
+async function forgotPassword(rawEmail) {
+  const email = normaliseEmail(rawEmail);
+
+  if (!isValidEmail(email)) {
+    throw authError('That does not look like an email address', 'email', 400);
+  }
+
   const user = await findUserByEmail(prisma, email);
   if (!user) {
-    throw new Error('No account found with this email');
+    throw authError('No account found for that email address', 'email', 404);
   }
 
   const resetToken = generateResetToken(user);

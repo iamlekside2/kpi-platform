@@ -6,8 +6,16 @@
  * work.
  */
 
+// Deliberately loose: the only thing worth rejecting here is text that cannot
+// be an address at all. Anything stricter starts turning away valid addresses.
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 function normaliseEmail(value) {
   return String(value || '').trim().toLowerCase();
+}
+
+function isValidEmail(value) {
+  return EMAIL_RE.test(normaliseEmail(value));
 }
 
 // Prisma's findUnique cannot do a case-insensitive match, so an email lookup
@@ -18,4 +26,4 @@ function findUserByEmail(prisma, email) {
   });
 }
 
-module.exports = { normaliseEmail, findUserByEmail };
+module.exports = { EMAIL_RE, normaliseEmail, isValidEmail, findUserByEmail };
