@@ -21,6 +21,7 @@ model User {
   memberWorkItems     MemberWorkItems[]
   levelChangesMade    LevelChange[]      @relation("LevelChangedBy")
   hrOfficerFor        Organisation[]     @relation("OrgHrOfficer")
+  kpiReadings         KpiReading[]       @relation("KpiRecordedBy")
   createdAt           DateTime           @default(now())
 }
 
@@ -106,8 +107,32 @@ model KPI {
   alertEnabled   Boolean         @default(false)
   orgId          String
   org            Organisation    @relation(fields: [orgId], references: [id])
+  // `value` above is the most recent reading, kept on the row so the cards and
+  // dashboard counts stay a single query. The series below is the real record.
+  readings       KpiReading[]
   updatedAt      DateTime        @updatedAt
   createdAt      DateTime        @default(now())
+}
+
+// One number for one KPI at one point in time. Without this a KPI held only
+// its latest value, so last month's figure was destroyed by this month's and
+// nothing could be reported over a quarter.
+model KpiReading {
+  id           String   @id @default(uuid())
+  kpi          KPI      @relation(fields: [kpiId], references: [id], onDelete: Cascade)
+  kpiId        String
+  value        Float
+  // The date the number describes, not the date it was typed in — someone
+  // entering September's figure in November must be able to say so.
+  recordedFor  DateTime
+  note         String   @default("")
+  recordedBy   User     @relation("KpiRecordedBy", fields: [recordedById], references: [id])
+  recordedById String
+  createdAt    DateTime @default(now())
+
+  // Recording the same period twice corrects it rather than duplicating it.
+  @@unique([kpiId, recordedFor])
+  @@index([kpiId, recordedFor])
 }
 
 model Integration {

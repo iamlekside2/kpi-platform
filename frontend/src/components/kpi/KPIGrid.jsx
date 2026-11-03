@@ -1,7 +1,7 @@
 import KPICard from './KPICard';
 import { BarChart3 } from 'lucide-react';
 
-export default function KPIGrid({ kpis, onUpdate, onDelete }) {
+export default function KPIGrid({ kpis, onUpdate, onDelete, canManage, onOpenHistory }) {
   if (!kpis || kpis.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-center">
@@ -34,7 +34,14 @@ export default function KPIGrid({ kpis, onUpdate, onDelete }) {
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {categoryKpis.map((kpi) => (
-              <KPICard key={kpi.id} kpi={kpi} onUpdate={onUpdate} onDelete={onDelete} />
+              <KPICard
+                key={kpi.id}
+                kpi={kpi}
+                onUpdate={onUpdate}
+                onDelete={onDelete}
+                canManage={canManage}
+                onOpenHistory={onOpenHistory}
+              />
             ))}
           </div>
         </div>

@@ -5,6 +5,7 @@ import { useToast } from '../../context/ToastContext';
 import api from '../../services/api';
 import PageWrapper from '../../components/layout/PageWrapper';
 import KPIGrid from '../../components/kpi/KPIGrid';
+import KPIHistoryModal from '../../components/kpi/KPIHistoryModal';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import { Rocket } from 'lucide-react';
@@ -19,6 +20,10 @@ export default function KPIsPage() {
   const [loading, setLoading] = useState(true);
   const [showAddKpi, setShowAddKpi] = useState(false);
   const [newKpi, setNewKpi] = useState({ name: '', unit: '', target: '', category: '', description: '' });
+  // Holds an id rather than the KPI itself, so the panel always renders the
+  // list's current copy after a reading is recorded or removed.
+  const [historyKpiId, setHistoryKpiId] = useState(null);
+  const historyKpi = kpis.find((k) => k.id === historyKpiId) || null;
 
   useEffect(() => {
     loadData();
@@ -161,7 +166,24 @@ export default function KPIsPage() {
               )}
             </AnimatePresence>
 
-            <KPIGrid kpis={kpis} onUpdate={handleKpiUpdate} onDelete={canManageKpis ? handleKpiDelete : null} />
+            <KPIGrid
+              kpis={kpis}
+              onUpdate={handleKpiUpdate}
+              onDelete={canManageKpis ? handleKpiDelete : null}
+              canManage={canManageKpis}
+              onOpenHistory={(kpi) => setHistoryKpiId(kpi.id)}
+            />
+
+            <AnimatePresence>
+              {historyKpi && (
+                <KPIHistoryModal
+                  kpi={historyKpi}
+                  canManage={canManageKpis}
+                  onChange={handleKpiUpdate}
+                  onClose={() => setHistoryKpiId(null)}
+                />
+              )}
+            </AnimatePresence>
           </>
         )}
       </div>

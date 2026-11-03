@@ -68,7 +68,17 @@ async function getOrgById(orgId, userId) {
     where: { id: orgId },
     include: {
       members: { include: { user: { select: { id: true, email: true, name: true } } } },
-      kpis: true,
+      // Newest first, capped — the KPI cards chart the recent run rather than
+      // the whole history, and the full series has its own endpoint.
+      kpis: {
+        include: {
+          readings: {
+            orderBy: { recordedFor: 'desc' },
+            take: 36,
+            include: { recordedBy: { select: { id: true, name: true } } },
+          },
+        },
+      },
     },
   });
 

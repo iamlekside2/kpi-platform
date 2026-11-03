@@ -101,6 +101,32 @@ async function auditKpiDeleted(kpi, userId) {
   });
 }
 
+async function auditKpiReadingRecorded(kpi, reading, userId) {
+  const period = new Date(reading.recordedFor).toISOString().slice(0, 10);
+  await createAuditLog({
+    userId,
+    orgId: kpi.orgId,
+    action: 'update',
+    entityType: 'KPI',
+    entityId: kpi.id,
+    description: `Recorded "${kpi.name}" for ${period}: ${reading.value} ${kpi.unit}`.trim(),
+    newValues: { value: reading.value, recordedFor: period, note: reading.note },
+  });
+}
+
+async function auditKpiReadingDeleted(kpi, reading, userId) {
+  const period = new Date(reading.recordedFor).toISOString().slice(0, 10);
+  await createAuditLog({
+    userId,
+    orgId: kpi.orgId,
+    action: 'delete',
+    entityType: 'KPI',
+    entityId: kpi.id,
+    description: `Removed "${kpi.name}" reading for ${period}`,
+    oldValues: { value: reading.value, recordedFor: period },
+  });
+}
+
 // ── Org Member Audit Triggers ──
 
 async function auditMemberInvited(member, userId) {
@@ -242,6 +268,8 @@ module.exports = {
   auditKpiCreated,
   auditKpiUpdated,
   auditKpiDeleted,
+  auditKpiReadingRecorded,
+  auditKpiReadingDeleted,
   auditMemberInvited,
   auditMemberRoleChanged,
   auditMemberDepartmentChanged,
