@@ -165,6 +165,15 @@ export default function AppraisalDetailPage() {
   // once it is final the employee is shown their own result rather than
   // having to download the PDF to learn their grade.
   const canSeeOwnResult = isEmployee && status === 'completed';
+
+  // Declared before anything reads it. When this sat further down the file,
+  // canSendBack reached it from inside the temporal dead zone and threw
+  // "Cannot access before initialization" — which crashed the whole page for
+  // every viewer of any appraisal at unit_reviewed, the one status where the
+  // earlier operands do not short-circuit first.
+  // Admins can read the HR section; only the named HR officer writes it
+  const isHrOfficer = Boolean(activeOrg?.hrOfficerId) && activeOrg.hrOfficerId === user?.id;
+
   // Only whoever the appraisal currently sits with can return it a stage
   const canSendBack =
     (status === 'submitted' && (isUnitHead || isAdmin))
@@ -174,8 +183,6 @@ export default function AppraisalDetailPage() {
   // What can each role EDIT? (chairman edits nothing)
   const canEditEmployee = isEmployee && status === 'draft';
   const canEditUnitHead = isUnitHead && status === 'submitted';
-  // Admins can read the HR section; only the named HR officer writes it
-  const isHrOfficer = Boolean(activeOrg?.hrOfficerId) && activeOrg.hrOfficerId === user?.id;
   const canEditAdmin = isHrOfficer && (status === 'unit_reviewed' || status === 'admin_reviewed');
   // An admin stands in for the MD only where the org has no MD at all
   const canStandInForMd = isAdmin && activeOrg?.hasMd === false;
