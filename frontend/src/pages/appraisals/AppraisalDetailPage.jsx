@@ -182,7 +182,15 @@ export default function AppraisalDetailPage() {
 
   // What can each role EDIT? (chairman edits nothing)
   const canEditEmployee = isEmployee && status === 'draft';
-  const canEditUnitHead = isUnitHead && status === 'submitted';
+
+  // The API decides this one and says so on the appraisal. Working it out
+  // here from role and status alone was wrong in both directions: it offered
+  // an editable form to any lead, on any department, including their own
+  // appraisal, and withheld it from the MD — who is the only person entitled
+  // to score a unit head.
+  const unitHeadReview = appraisal?.unitHeadReview;
+  const canEditUnitHead = Boolean(unitHeadReview?.canScore);
+  const employeeIsLead = Boolean(unitHeadReview?.employeeIsLead);
   const canEditAdmin = isHrOfficer && (status === 'unit_reviewed' || status === 'admin_reviewed');
   // An admin stands in for the MD only where the org has no MD at all
   const canStandInForMd = isAdmin && activeOrg?.hasMd === false;
@@ -797,14 +805,28 @@ export default function AppraisalDetailPage() {
               </div>
             )}
 
+            {/* Says why the form is read-only rather than letting someone
+                fill twelve scores and discover at Save that it is not theirs */}
+            {!canEditUnitHead && status === 'submitted' && unitHeadReview?.blockedReason && (
+              <div className="mb-4 px-4 py-3 bg-amber-500/10 border border-amber-500/20 rounded-lg text-sm text-amber-400 flex items-center gap-2">
+                <Info className="w-3.5 h-3.5 shrink-0" />
+                {unitHeadReview.blockedReason}
+              </div>
+            )}
+
             <div className="bg-surface-900/60 border border-white/[0.06] rounded-xl p-6">
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h3 className="text-sm font-bold text-white flex items-center gap-2">
                     <UsersRound className="w-4 h-4 text-accent-400" />
-                    Unit Head Scoring
+                    {employeeIsLead ? 'Unit Head Scoring — by the MD' : 'Unit Head Scoring'}
                   </h3>
                   <p className="text-xs text-slate-500 mt-0.5">Score: 8=Excellent, 6=Good, 4=Improve, 2=Poor</p>
+                  {employeeIsLead && (
+                    <p className="text-xs text-amber-400/80 mt-1">
+                      {appraisal.employee?.name} is a unit head, so this stage is the MD&apos;s, not another unit head&apos;s.
+                    </p>
+                  )}
                 </div>
                 <div className="text-right">
                   <div className="text-lg font-bold text-white tabular-nums">{unitHeadTotal}</div>

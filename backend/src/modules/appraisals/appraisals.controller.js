@@ -228,7 +228,19 @@ async function getOne(req, res) {
       return res.status(403).json({ error: 'You can only view your own appraisals' });
     }
 
-    res.json(appraisal);
+    // The same verdict the PATCH will reach, so the page offers an editable
+    // form only to whoever can actually save it, and can say who that is.
+    const unitHeadRule = await getUnitHeadReviewRule(appraisal, req.user.userId);
+
+    res.json({
+      ...appraisal,
+      unitHeadReview: {
+        canScore: unitHeadRule.allowed,
+        blockedReason: unitHeadRule.reason,
+        reviewedBy: unitHeadRule.reviewedBy,     // 'md' when the employee is a unit head
+        employeeIsLead: unitHeadRule.employeeIsLead,
+      },
+    });
   } catch (err) {
     console.error('Get appraisal error:', err);
     res.status(500).json({ error: 'Failed to get appraisal' });
@@ -328,70 +340,70 @@ async function submit(req, res) {
   }
 }
 
-// PATCH /appraisals/:id/unit-head — only lead role, after employee submits
+// Who may fill the unit head stage on this appraisal, and why not.
+//
+// These rules lived only inside the PATCH handler, so the page had its own
+// idea of who could score: any lead, on anyone, including themselves. Another
+// unit head was shown an editable form on a colleague lead's appraisal and
+// only found out at Save, while the MD — the one person entitled to score a
+// lead — was given it read-only and could not finish it at all. One function
+// now answers the question, and both the page and the PATCH ask it.
+async function getUnitHeadReviewRule(appraisal, userId) {
+  const [role, me, them] = await Promise.all([
+    getUserRole(userId, appraisal.orgId),
+    prisma.orgMember.findUnique({
+      where: { userId_orgId: { userId, orgId: appraisal.orgId } },
+      select: { departmentId: true },
+    }),
+    prisma.orgMember.findUnique({
+      where: { userId_orgId: { userId: appraisal.employeeId, orgId: appraisal.orgId } },
+      select: { departmentId: true, role: true },
+    }),
+  ]);
+
+  // A unit head has nobody above them inside their own department, so this
+  // stage belongs to the MD. An admin stands in where there is no MD.
+  const employeeIsLead = them?.role === 'lead';
+  const reviewedBy = employeeIsLead ? 'md' : 'lead';
+
+  const deny = (reason) => ({ allowed: false, reason, reviewedBy, employeeIsLead });
+
+  if (appraisal.employeeId === userId) return deny('You cannot review your own appraisal');
+  if (!role) return deny('Not a member of this organisation');
+
+  if (employeeIsLead) {
+    if (role !== 'md' && role !== 'admin') {
+      return deny("A unit head's own appraisal is reviewed by the MD");
+    }
+  } else {
+    if (role !== 'lead' && role !== 'admin') {
+      return deny('Only unit heads can score appraisals');
+    }
+    if (role === 'lead' && me?.departmentId && me.departmentId !== them?.departmentId) {
+      return deny('You can only review your own department');
+    }
+  }
+
+  if (appraisal.status !== 'submitted') {
+    return deny('Appraisal must be submitted before unit head review');
+  }
+
+  return { allowed: true, reason: null, reviewedBy, employeeIsLead };
+}
+
+// PATCH /appraisals/:id/unit-head
 async function updateUnitHead(req, res) {
   try {
     const appraisal = await service.getAppraisalById(req.params.id);
     if (!appraisal) return res.status(404).json({ error: 'Appraisal not found' });
 
-    if (appraisal.employeeId === req.user.userId) {
-      return res.status(403).json({ error: 'You cannot review your own appraisal' });
+    const rule = await getUnitHeadReviewRule(appraisal, req.user.userId);
+    if (!rule.allowed) {
+      const status = rule.reason.startsWith('Appraisal must be submitted') ? 400 : 403;
+      return res.status(status).json({ error: rule.reason });
     }
 
-    const role = await getUserRole(req.user.userId, appraisal.orgId);
-
-    // A unit head's own appraisal has nobody above them in their own
-    // department, so this stage belongs to the MD rather than to another lead.
-    const employee = await prisma.orgMember.findUnique({
-      where: { userId_orgId: { userId: appraisal.employeeId, orgId: appraisal.orgId } },
-      select: { role: true },
-    });
-    if (employee?.role === 'lead') {
-      if (role !== 'md' && role !== 'admin') {
-        return res.status(403).json({ error: "A unit head's own appraisal is reviewed by the MD" });
-      }
-      if (appraisal.status !== 'submitted') {
-        return res.status(400).json({ error: 'Appraisal must be submitted before unit head review' });
-      }
-      const scores = req.body.unitHeadScores;
-      const check = service.validateUnitHeadScores(scores);
-      if (check.invalid.length > 0) {
-        return res.status(400).json({ error: `Out of range: ${check.invalid.join(', ')}` });
-      }
-      if (check.missing.length > 0) {
-        return res.status(400).json({
-          error: `Score every attribute before saving. ${check.missing.length} still unscored: ${check.missing.join(', ')}`,
-          missing: check.missing,
-        });
-      }
-      const done = await service.updateUnitHeadReview(req.params.id, req.user.userId, req.body);
-      notifyAppraisalReviewed(done, 'unit_head').catch(() => {});
-      auditAppraisalStatusChanged(done, 'submitted', 'unit_reviewed', req.user.userId).catch(() => {});
-      return res.json(done);
-    }
-
-    // Role alone was enough, so any unit head could score any department's
-    // staff. A lead must lead the department the employee is in.
-    if (role === 'lead') {
-      const [me, them] = await Promise.all([
-        prisma.orgMember.findUnique({
-          where: { userId_orgId: { userId: req.user.userId, orgId: appraisal.orgId } },
-          select: { departmentId: true },
-        }),
-        prisma.orgMember.findUnique({
-          where: { userId_orgId: { userId: appraisal.employeeId, orgId: appraisal.orgId } },
-          select: { departmentId: true },
-        }),
-      ]);
-      if (me?.departmentId && me.departmentId !== them?.departmentId) {
-        return res.status(403).json({ error: 'You can only review your own department' });
-      }
-    }
-    if (role !== 'lead' && role !== 'admin') {
-      return res.status(403).json({ error: 'Only unit heads can score appraisals' });
-    }
-    const scores = req.body.unitHeadScores;
-    const { missing, invalid } = service.validateUnitHeadScores(scores);
+    const { missing, invalid } = service.validateUnitHeadScores(req.body.unitHeadScores);
     if (invalid.length > 0) {
       return res.status(400).json({ error: `Out of range: ${invalid.join(', ')}` });
     }
@@ -400,10 +412,6 @@ async function updateUnitHead(req, res) {
         error: `Score every attribute before saving. ${missing.length} still unscored: ${missing.join(', ')}`,
         missing,
       });
-    }
-
-    if (appraisal.status !== 'submitted') {
-      return res.status(400).json({ error: 'Appraisal must be submitted before unit head review' });
     }
 
     const updated = await service.updateUnitHeadReview(req.params.id, req.user.userId, req.body);
