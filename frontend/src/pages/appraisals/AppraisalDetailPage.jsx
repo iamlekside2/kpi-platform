@@ -71,6 +71,9 @@ export default function AppraisalDetailPage() {
   const [mdComment, setMdComment] = useState('');
   const [mdScore, setMdScore] = useState(0);
   const [syncingTasks, setSyncingTasks] = useState(false);
+  // Set once a save is refused, so the attributes still unscored are marked
+  // in red. Twelve rows is too many to find the gap in by eye.
+  const [showUnitHeadGaps, setShowUnitHeadGaps] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -215,6 +218,10 @@ export default function AppraisalDetailPage() {
 
   const selfRatingTotal = Object.values(selfRatings).reduce((sum, v) => sum + (Number(v) || 0), 0);
   const unitHeadTotal = Object.values(unitHeadScores).reduce((sum, v) => sum + (Number(v) || 0), 0);
+  // The API refuses the whole save unless all twelve are scored, so work out
+  // the gaps here and say so on the page rather than at the point of failure.
+  const unitHeadAttrs = formStructure?.unitHeadAttributes || [];
+  const unitHeadUnscored = unitHeadAttrs.filter((a) => !unitHeadScores[a.key]);
 
   const deptLabel = formStructure?.departmentLabel || 'Department';
   const hasDeptQuestions = formStructure?.departmentQuestions?.length > 0;
@@ -254,7 +261,7 @@ export default function AppraisalDetailPage() {
       setAppraisal(data);
       toast.success('Draft saved!');
     } catch (err) {
-      console.error('Save failed:', err);
+      toast.error(err.response?.data?.error || 'Could not save the draft. Please try again.');
     } finally {
       setSaving(false);
     }
@@ -300,6 +307,18 @@ export default function AppraisalDetailPage() {
   }
 
   async function handleUnitHeadSave() {
+    // Stop before the round trip so the unscored rows are marked immediately
+    // instead of the button appearing to do nothing.
+    if (unitHeadUnscored.length > 0) {
+      setShowUnitHeadGaps(true);
+      setActiveSection('section2');
+      toast.error(
+        `Score every attribute first — ${unitHeadUnscored.length} still unscored: ${unitHeadUnscored
+          .map((a) => a.label)
+          .join(', ')}`
+      );
+      return;
+    }
     setSaving(true);
     try {
       const { data } = await api.patch(`/appraisals/${id}/unit-head`, {
@@ -307,9 +326,14 @@ export default function AppraisalDetailPage() {
         unitHeadComment,
       });
       setAppraisal(data);
+      setShowUnitHeadGaps(false);
       toast.success('Unit Head review saved!');
     } catch (err) {
-      console.error('Unit head save failed:', err);
+      // This used to be console.error only, so a refused save looked like a
+      // dead button. One unit head could not file a review for two days.
+      const data = err.response?.data;
+      if (Array.isArray(data?.missing) && data.missing.length > 0) setShowUnitHeadGaps(true);
+      toast.error(data?.error || 'Could not save the review. Please try again.');
     } finally {
       setSaving(false);
     }
@@ -322,7 +346,7 @@ export default function AppraisalDetailPage() {
       setAppraisal(data);
       toast.success('Admin comment saved!');
     } catch (err) {
-      console.error('Admin save failed:', err);
+      toast.error(err.response?.data?.error || 'Could not save the comment. Please try again.');
     } finally {
       setSaving(false);
     }
@@ -335,7 +359,7 @@ export default function AppraisalDetailPage() {
       setAppraisal(data);
       toast.success('MD comment saved. Appraisal completed!');
     } catch (err) {
-      console.error('MD save failed:', err);
+      toast.error(err.response?.data?.error || 'Could not save. Please try again.');
     } finally {
       setSaving(false);
     }
@@ -354,7 +378,7 @@ export default function AppraisalDetailPage() {
       link.remove();
       window.URL.revokeObjectURL(url);
     } catch (err) {
-      console.error('PDF export failed:', err);
+      toast.error('Could not generate the PDF. Please try again.');
     } finally {
       setExporting(false);
     }
@@ -582,7 +606,7 @@ export default function AppraisalDetailPage() {
                         rows={3}
                         className="w-full px-4 py-2.5 bg-slate-800/50 border border-white/[0.06] rounded-lg text-sm text-slate-100 placeholder-slate-600 outline-none focus:border-accent-500/50 focus:ring-2 focus:ring-accent-500/20 transition-all resize-y disabled:opacity-60 disabled:cursor-not-allowed"
                         value={selfAssessment[q.key] || ''}
-                        onChange={(e) => setSelfAssessment({ ...selfAssessment, [q.key]: e.target.value })}
+                        onChange={(e) => setSelfAssessment((prev) => ({ ...prev, [q.key]: e.target.value }))}
                         disabled={!canEditEmployee}
                         placeholder={canEditEmployee ? 'Your answer...' : ''}
                       />
@@ -621,7 +645,7 @@ export default function AppraisalDetailPage() {
                           value={selfRatings[attr.key] ?? ''}
                           onChange={(e) => {
                             const val = Math.min(Number(e.target.value), attr.maxScore);
-                            setSelfRatings({ ...selfRatings, [attr.key]: val });
+                            setSelfRatings((prev) => ({ ...prev, [attr.key]: val }));
                           }}
                           disabled={!canEditEmployee}
                         />
@@ -635,7 +659,7 @@ export default function AppraisalDetailPage() {
                         placeholder={canEditEmployee ? 'Give reason' : ''}
                         className="mt-2 w-full px-3 py-1.5 bg-slate-800/60 border border-white/[0.06] rounded-lg text-xs text-slate-200 placeholder-slate-600 outline-none focus:border-accent-500/40 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
                         value={selfRatingReasons[attr.key] || ''}
-                        onChange={(e) => setSelfRatingReasons({ ...selfRatingReasons, [attr.key]: e.target.value })}
+                        onChange={(e) => setSelfRatingReasons((prev) => ({ ...prev, [attr.key]: e.target.value }))}
                         disabled={!canEditEmployee}
                       />
                     )}
@@ -677,7 +701,7 @@ export default function AppraisalDetailPage() {
                       rows={3}
                       className="w-full px-4 py-2.5 bg-slate-800/50 border border-white/[0.06] rounded-lg text-sm text-slate-100 placeholder-slate-600 outline-none focus:border-accent-500/50 focus:ring-2 focus:ring-accent-500/20 transition-all resize-y disabled:opacity-60 disabled:cursor-not-allowed"
                       value={technicalAnswers[q.key] || ''}
-                      onChange={(e) => setTechnicalAnswers({ ...technicalAnswers, [q.key]: e.target.value })}
+                      onChange={(e) => setTechnicalAnswers((prev) => ({ ...prev, [q.key]: e.target.value }))}
                       disabled={!canEditEmployee}
                       placeholder={canEditEmployee ? 'Your answer...' : ''}
                     />
@@ -831,6 +855,15 @@ export default function AppraisalDetailPage() {
                 <div className="text-right">
                   <div className="text-lg font-bold text-white tabular-nums">{unitHeadTotal}</div>
                   <div className="text-[10px] text-slate-500 uppercase tracking-wider">/ {formStructure.unitHeadAttributes.length * 8}</div>
+                  {canEditUnitHead && (
+                    <div
+                      className={`text-[10px] mt-1 font-semibold ${
+                        unitHeadUnscored.length > 0 ? 'text-amber-400' : 'text-emerald-400'
+                      }`}
+                    >
+                      {unitHeadAttrs.length - unitHeadUnscored.length} of {unitHeadAttrs.length} scored
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -844,17 +877,27 @@ export default function AppraisalDetailPage() {
               </div>
 
               <div className="space-y-2">
-                {formStructure.unitHeadAttributes.map((attr, i) => (
-                  <div key={attr.key} className="flex items-center justify-between p-3 bg-slate-800/30 border border-white/[0.04] rounded-lg">
-                    <span className="text-xs text-slate-300 flex-1 pr-4">
+                {formStructure.unitHeadAttributes.map((attr, i) => {
+                  const isGap = showUnitHeadGaps && canEditUnitHead && !unitHeadScores[attr.key];
+                  return (
+                  <div
+                    key={attr.key}
+                    className={`flex items-center justify-between p-3 rounded-lg border ${
+                      isGap
+                        ? 'bg-red-500/[0.07] border-red-500/40'
+                        : 'bg-slate-800/30 border-white/[0.04]'
+                    }`}
+                  >
+                    <span className={`text-xs flex-1 pr-4 ${isGap ? 'text-red-300' : 'text-slate-300'}`}>
                       <span className="text-slate-500 mr-2">{i + 1}.</span>
                       {attr.label}
+                      {isGap && <span className="ml-2 text-[10px] text-red-400 font-semibold">not scored</span>}
                     </span>
                     <div className="flex gap-1">
                       {[8, 6, 4, 2].map((score) => (
                         <button
                           key={score}
-                          onClick={() => canEditUnitHead && setUnitHeadScores({ ...unitHeadScores, [attr.key]: score })}
+                          onClick={() => canEditUnitHead && setUnitHeadScores((prev) => ({ ...prev, [attr.key]: score }))}
                           disabled={!canEditUnitHead}
                           className={`w-8 h-8 rounded-lg text-xs font-bold transition-all
                             ${canEditUnitHead ? 'cursor-pointer' : 'cursor-not-allowed opacity-70'}
@@ -871,7 +914,8 @@ export default function AppraisalDetailPage() {
                       ))}
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
 
