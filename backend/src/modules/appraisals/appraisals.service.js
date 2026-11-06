@@ -298,10 +298,16 @@ async function createAppraisal(orgId, employeeId, data) {
 //                  something. Hiding it would break the send-back flow.
 //   finalScore, grade, adminComment, mdComment, mdScore — still theirs to see.
 //
-// Keyed on "is the viewer the person being appraised", not on role, so it
-// holds for a lead or an admin looking at their own appraisal too.
-function redactUnitHeadForSelf(appraisal, viewerId) {
+// Keyed on "is the viewer the person being appraised", so it holds for a unit
+// head or the MD looking at their own appraisal too — not just for members.
+// Admins are the one exemption, by decision: they administer the system and
+// already hold every other appraisal's review, so withholding their own buys
+// nothing. Every other role is redacted on their own appraisal.
+const EXEMPT_ROLES = ['admin'];
+
+function redactUnitHeadForSelf(appraisal, viewerId, viewerRole = null) {
   if (!appraisal || !viewerId || appraisal.employeeId !== viewerId) return appraisal;
+  if (viewerRole && EXEMPT_ROLES.includes(viewerRole)) return appraisal;
   return {
     ...appraisal,
     unitHeadScores: {},
@@ -312,9 +318,9 @@ function redactUnitHeadForSelf(appraisal, viewerId) {
   };
 }
 
-function redactUnitHeadForSelfList(appraisals, viewerId) {
+function redactUnitHeadForSelfList(appraisals, viewerId, viewerRole = null) {
   if (!Array.isArray(appraisals)) return appraisals;
-  return appraisals.map((a) => redactUnitHeadForSelf(a, viewerId));
+  return appraisals.map((a) => redactUnitHeadForSelf(a, viewerId, viewerRole));
 }
 
 // ── Get appraisals for an org ──

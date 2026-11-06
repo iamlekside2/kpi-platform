@@ -190,8 +190,10 @@ async function getAll(req, res) {
     if (!role) return res.status(403).json({ error: 'Not a member of this org' });
 
     if (role === 'member') {
+      // This branch returned the rows untouched, so the comment still reached
+      // ordinary employees here even once the other paths were closed.
       const appraisals = await service.getEmployeeAppraisals(req.params.orgId, req.user.userId);
-      return res.json(appraisals);
+      return res.json(service.redactUnitHeadForSelfList(appraisals, req.user.userId, role));
     }
 
     // A unit head reviews their own department and sees only that
@@ -202,12 +204,12 @@ async function getAll(req, res) {
       });
       if (me?.departmentId) {
         const scoped = await service.getDepartmentAppraisals(req.params.orgId, me.departmentId);
-        return res.json(service.redactUnitHeadForSelfList(scoped, req.user.userId));
+        return res.json(service.redactUnitHeadForSelfList(scoped, req.user.userId, role));
       }
     }
 
     const appraisals = await service.getOrgAppraisals(req.params.orgId);
-    res.json(service.redactUnitHeadForSelfList(appraisals, req.user.userId));
+    res.json(service.redactUnitHeadForSelfList(appraisals, req.user.userId, role));
   } catch (err) {
     console.error('Get appraisals error:', err);
     res.status(500).json({ error: 'Failed to get appraisals' });
@@ -233,7 +235,7 @@ async function getOne(req, res) {
     const unitHeadRule = await getUnitHeadReviewRule(appraisal, req.user.userId);
 
     res.json({
-      ...service.redactUnitHeadForSelf(appraisal, req.user.userId),
+      ...service.redactUnitHeadForSelf(appraisal, req.user.userId, role),
       unitHeadReview: {
         canScore: unitHeadRule.allowed,
         blockedReason: unitHeadRule.reason,
@@ -250,8 +252,9 @@ async function getOne(req, res) {
 // GET /appraisals/org/:orgId/my
 async function getMine(req, res) {
   try {
+    const role = await getUserRole(req.user.userId, req.params.orgId);
     const appraisals = await service.getEmployeeAppraisals(req.params.orgId, req.user.userId);
-    res.json(service.redactUnitHeadForSelfList(appraisals, req.user.userId));
+    res.json(service.redactUnitHeadForSelfList(appraisals, req.user.userId, role));
   } catch (err) {
     console.error('Get my appraisals error:', err);
     res.status(500).json({ error: 'Failed to get appraisals' });

@@ -27,7 +27,7 @@ async function exportAppraisalPDF(req, res) {
       return res.status(403).json({ error: 'You can only export your own appraisals' });
     }
 
-    const { doc } = await generateAppraisalPDF(req.params.id, req.user.userId);
+    const { doc } = await generateAppraisalPDF(req.params.id, req.user.userId, role);
     const safeName = (appraisal.employee?.name || 'employee').replace(/[^a-zA-Z0-9]/g, '_');
     const filename = `appraisal-${safeName}-${Date.now()}.pdf`;
 
@@ -48,7 +48,7 @@ async function exportAppraisalsExcel(req, res) {
       return res.status(403).json({ error: 'Only admins and unit heads can export appraisal data' });
     }
 
-    const workbook = await generateAppraisalsExcel(req.params.orgId, req.user.userId);
+    const workbook = await generateAppraisalsExcel(req.params.orgId, req.user.userId, role);
     const filename = `appraisals-${Date.now()}.xlsx`;
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');

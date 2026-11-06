@@ -7,11 +7,11 @@ const { getFormStructure } = require('../appraisals/appraisals.service');
 // PDF — Single Appraisal Report
 // ══════════════════════════════════════════════════════════════
 
-// viewerId lets the same generator produce the employee's copy. Management
-// asked that an employee not see their unit head's review, so when the
-// viewer IS the person being appraised that section is withheld. Everyone
-// else — unit head, HR, MD, admin — still gets the full record.
-async function generateAppraisalPDF(appraisalId, viewerId = null) {
+// viewerId/viewerRole let the same generator produce the employee's copy.
+// Management asked that an employee not see their unit head's review, so
+// when the viewer IS the person being appraised that section is withheld.
+// Admins are exempt on their own, matching the API's rule.
+async function generateAppraisalPDF(appraisalId, viewerId = null, viewerRole = null) {
   const appraisal = await prisma.appraisal.findUnique({
     where: { id: appraisalId },
     include: {
@@ -23,7 +23,7 @@ async function generateAppraisalPDF(appraisalId, viewerId = null) {
 
   if (!appraisal) throw new Error('Appraisal not found');
 
-  const hideUnitHead = Boolean(viewerId) && appraisal.employeeId === viewerId;
+  const hideUnitHead = Boolean(viewerId) && appraisal.employeeId === viewerId && viewerRole !== 'admin';
 
   const form = getFormStructure(appraisal.department);
   const doc = new PDFDocument({ size: 'A4', margin: 50 });
@@ -247,7 +247,7 @@ async function generateAppraisalPDF(appraisalId, viewerId = null) {
 // Excel — Appraisals List
 // ══════════════════════════════════════════════════════════════
 
-async function generateAppraisalsExcel(orgId, viewerId = null) {
+async function generateAppraisalsExcel(orgId, viewerId = null, viewerRole = null) {
   const appraisals = await prisma.appraisal.findMany({
     where: { orgId },
     include: {
@@ -309,7 +309,7 @@ async function generateAppraisalsExcel(orgId, viewerId = null) {
       selfRating: `${selfTotal}/${selfMax}`,
       // Same rule as the PDF: the exporter does not get to read their own
       // unit head score out of the org sheet.
-      unitHead: viewerId && a.employeeId === viewerId ? 'not disclosed' : `${uhTotal}/${uhMax}`,
+      unitHead: viewerId && a.employeeId === viewerId && viewerRole !== 'admin' ? 'not disclosed' : `${uhTotal}/${uhMax}`,
       mdScore: a.mdScore || 0,
       finalScore: a.finalScore || 0,
       grade: a.grade || '—',
