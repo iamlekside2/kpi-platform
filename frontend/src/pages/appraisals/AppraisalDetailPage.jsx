@@ -20,6 +20,17 @@ const STATUS_LABELS = {
   completed: 'Completed',
 };
 
+// What the status actually means for the person being appraised. The badge
+// alone ("Unit Reviewed") reads as a state, not as progress, and leaves them
+// unsure whether anything is expected of them.
+const EMPLOYEE_STAGE_NOTE = {
+  draft: 'Not submitted yet. Fill in your sections and submit when you are ready.',
+  submitted: 'Submitted. Waiting for your unit head to review it.',
+  unit_reviewed: 'Your unit head has reviewed it. It is now with HR.',
+  admin_reviewed: 'HR has reviewed it. It is now with the Managing Director for the final score.',
+  completed: 'Completed. Your score and grade are under "My Result".',
+};
+
 const STATUS_COLORS = {
   draft: 'bg-slate-500/10 text-slate-400 border-slate-500/20',
   submitted: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
@@ -226,6 +237,11 @@ export default function AppraisalDetailPage() {
   const unitHeadTotal = Object.values(unitHeadScores).reduce((sum, v) => sum + (Number(v) || 0), 0);
   // The API refuses the whole save unless all twelve are scored, so work out
   // the gaps here and say so on the page rather than at the point of failure.
+  // A unit head's own appraisal is scored by the MD, so do not tell them to
+  // wait for a unit head.
+  const stageNote = status === 'submitted' && unitHeadReview?.reviewedBy === 'md'
+    ? 'Submitted. Waiting for the Managing Director to review it.'
+    : EMPLOYEE_STAGE_NOTE[status];
   const unitHeadAttrs = formStructure?.unitHeadAttributes || [];
   const unitHeadUnscored = unitHeadAttrs.filter((a) => !unitHeadScores[a.key]);
 
@@ -505,6 +521,14 @@ export default function AppraisalDetailPage() {
             </button>
           ))}
         </div>
+
+        {/* ── Where it is now, for the person being appraised ── */}
+        {isEmployee && stageNote && !(appraisal.returnReason && status !== 'completed') && (
+          <div className="mb-5 flex items-start gap-3 px-4 py-3 bg-surface-900/60 border border-white/[0.06] rounded-xl">
+            <Info className="w-4 h-4 text-accent-400 mt-0.5 shrink-0" />
+            <p className="text-sm text-slate-300">{stageNote}</p>
+          </div>
+        )}
 
         {/* ── SECTION 1: Self Assessment ── */}
         {/* ── Why it came back, for whoever has to act on it again ── */}
