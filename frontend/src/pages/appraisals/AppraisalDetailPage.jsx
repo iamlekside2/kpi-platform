@@ -158,11 +158,17 @@ export default function AppraisalDetailPage() {
   const isChairman = role === 'chairman';
   const isExecutive = isMd || isChairman;
   const status = appraisal?.status;
+  // Set by the API when the viewer is the person being appraised: management
+  // does not disclose the unit head's review to them. Declared up here
+  // because the section flags below read it.
+  const unitHeadHidden = Boolean(appraisal?.unitHeadHidden);
 
   // What can each role SEE?
   const canSeeSection1 = true; // Everyone can see Section 1 (employee self-assessment)
   const canSeeDeptQuestions = true; // Everyone can see department questions
-  const canSeeSection2 = isUnitHead || isAdmin || isExecutive;
+  // ...but not on their own appraisal: the scores are redacted for them, so
+  // the tab would show twelve blank rows and read as a bug.
+  const canSeeSection2 = (isUnitHead || isAdmin || isExecutive) && !unitHeadHidden;
   const canSeeSection3 = isAdmin || isExecutive;
   // Reviewers' working scores stay private while the appraisal is open, but
   // once it is final the employee is shown their own result rather than
@@ -248,6 +254,17 @@ export default function AppraisalDetailPage() {
     ...(canSeeSection3 ? [{ key: 'section3', label: 'Management', Icon: Building2 }] : []),
     ...(canSeeOwnResult ? [{ key: 'result', label: 'My Result', Icon: Trophy }] : []),
   ];
+
+  // The default-section effect above can pick a tab that is not on offer —
+  // an HR officer or MD opening their OWN appraisal at unit_reviewed would be
+  // sent to section2, which is hidden from them. Without this the content
+  // area renders nothing at all.
+  useEffect(() => {
+    if (!appraisal || !activeSection) return;
+    if (!SECTIONS.some((s) => s.key === activeSection)) {
+      setActiveSection(SECTIONS[0]?.key || 'section1');
+    }
+  }, [appraisal, activeSection, SECTIONS.length]);
 
   async function handleSaveDraft() {
     setSaving(true);
@@ -539,8 +556,17 @@ export default function AppraisalDetailPage() {
                 </div>
                 <div className="p-4 bg-slate-800/30 rounded-xl border border-white/[0.04] text-center">
                   <div className="text-[10px] text-emerald-400 uppercase tracking-wider font-bold mb-1">Unit head (50%)</div>
-                  <div className="text-2xl font-bold text-white tabular-nums">{unitHeadTotal}</div>
-                  <div className="text-[10px] text-slate-500">/ {formStructure.scoring?.unitHeadMax ?? 96}</div>
+                  {unitHeadHidden ? (
+                    <>
+                      <div className="text-sm font-semibold text-slate-400 mt-2">Not disclosed</div>
+                      <div className="text-[10px] text-slate-600">Counted in your final score</div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="text-2xl font-bold text-white tabular-nums">{unitHeadTotal}</div>
+                      <div className="text-[10px] text-slate-500">/ {formStructure.scoring?.unitHeadMax ?? 96}</div>
+                    </>
+                  )}
                 </div>
                 <div className="p-4 bg-slate-800/30 rounded-xl border border-white/[0.04] text-center">
                   <div className="text-[10px] text-amber-400 uppercase tracking-wider font-bold mb-1">MD (20%)</div>
@@ -553,7 +579,10 @@ export default function AppraisalDetailPage() {
             <div className="bg-surface-900/60 border border-white/[0.06] rounded-2xl p-6 space-y-5">
               <h3 className="text-sm font-bold text-white">Feedback on your appraisal</h3>
               {[
-                { label: 'Your unit head', value: appraisal.unitHeadComment },
+                // The unit head's comment is withheld from the employee, so it
+                // is left out rather than shown as "No comment recorded" —
+                // which would read as the unit head having skipped it.
+                ...(unitHeadHidden ? [] : [{ label: 'Your unit head', value: appraisal.unitHeadComment }]),
                 { label: 'HR', value: appraisal.adminComment },
                 { label: 'Managing Director', value: appraisal.mdComment },
               ].map((c) => (
@@ -570,7 +599,9 @@ export default function AppraisalDetailPage() {
             </div>
 
             <p className="text-[11px] text-slate-600">
-              Speak to your unit head if anything here does not look right. Download PDF gives you the full record.
+              {unitHeadHidden
+                ? 'Your unit head’s own scoring and comments are not disclosed. Speak to HR if anything here does not look right.'
+                : 'Speak to your unit head if anything here does not look right. Download PDF gives you the full record.'}
             </p>
           </motion.div>
         )}

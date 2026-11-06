@@ -287,6 +287,36 @@ async function createAppraisal(orgId, employeeId, data) {
   });
 }
 
+// ── Hiding the unit head's review from the person being appraised ──
+// Management's rule: an employee does not see their unit head's comment or
+// the twelve scores behind it. The tabs were already hidden in the UI, but
+// every read path still sent the text down the wire, so it was one devtools
+// panel away. This strips it at the source instead.
+//
+// Deliberately NOT stripped:
+//   returnReason — that is a message TO the employee, asking them to fix
+//                  something. Hiding it would break the send-back flow.
+//   finalScore, grade, adminComment, mdComment, mdScore — still theirs to see.
+//
+// Keyed on "is the viewer the person being appraised", not on role, so it
+// holds for a lead or an admin looking at their own appraisal too.
+function redactUnitHeadForSelf(appraisal, viewerId) {
+  if (!appraisal || !viewerId || appraisal.employeeId !== viewerId) return appraisal;
+  return {
+    ...appraisal,
+    unitHeadScores: {},
+    unitHeadComment: '',
+    // Lets the page say "withheld" rather than "no comment recorded", which
+    // would read as the unit head having skipped it.
+    unitHeadHidden: true,
+  };
+}
+
+function redactUnitHeadForSelfList(appraisals, viewerId) {
+  if (!Array.isArray(appraisals)) return appraisals;
+  return appraisals.map((a) => redactUnitHeadForSelf(a, viewerId));
+}
+
 // ── Get appraisals for an org ──
 // A unit head reviews their own department, so that is what they see.
 // A lead with no department falls back to the whole org, as elsewhere.
@@ -454,6 +484,8 @@ module.exports = {
   getFormStructure,
   validateSelfRatings,
   validateUnitHeadScores,
+  redactUnitHeadForSelf,
+  redactUnitHeadForSelfList,
   validateSelfAssessment,
   validateDepartmentAnswers,
   getDeptLabel,

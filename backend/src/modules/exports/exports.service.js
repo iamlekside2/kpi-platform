@@ -7,7 +7,11 @@ const { getFormStructure } = require('../appraisals/appraisals.service');
 // PDF — Single Appraisal Report
 // ══════════════════════════════════════════════════════════════
 
-async function generateAppraisalPDF(appraisalId) {
+// viewerId lets the same generator produce the employee's copy. Management
+// asked that an employee not see their unit head's review, so when the
+// viewer IS the person being appraised that section is withheld. Everyone
+// else — unit head, HR, MD, admin — still gets the full record.
+async function generateAppraisalPDF(appraisalId, viewerId = null) {
   const appraisal = await prisma.appraisal.findUnique({
     where: { id: appraisalId },
     include: {
@@ -18,6 +22,8 @@ async function generateAppraisalPDF(appraisalId) {
   });
 
   if (!appraisal) throw new Error('Appraisal not found');
+
+  const hideUnitHead = Boolean(viewerId) && appraisal.employeeId === viewerId;
 
   const form = getFormStructure(appraisal.department);
   const doc = new PDFDocument({ size: 'A4', margin: 50 });
@@ -146,21 +152,28 @@ async function generateAppraisalPDF(appraisalId) {
   sectionTitle('Section 2 — Unit Head Review (Max 8 per attribute)');
 
   const uh = appraisal.unitHeadScores || {};
-  form.unitHeadAttributes.forEach((attr, i) => {
-    if (doc.y > 740) doc.addPage();
-    scoreRow(attr.label, uh[attr.key], attr.maxScore, i);
-  });
-
   const uhTotal = Object.values(uh).reduce((sum, v) => sum + (Number(v) || 0), 0);
   const uhMax = form.unitHeadAttributes.reduce((s, a) => s + a.maxScore, 0);
-  doc.moveDown(0.3);
-  doc.fontSize(10).fillColor(ACCENT).font('Helvetica-Bold').text(`Total Unit Head Score: ${uhTotal} / ${uhMax}`, { align: 'right' });
 
-  // Unit Head Comment
-  if (appraisal.unitHeadComment) {
+  if (hideUnitHead) {
+    doc.fontSize(9).fillColor(MEDIUM).font('Helvetica-Oblique')
+      .text('This section is not disclosed to the employee. Speak to HR if you have a question about your appraisal.', { indent: 10 });
     doc.moveDown(0.5);
-    doc.fontSize(9).fillColor(MEDIUM).font('Helvetica-Bold').text('Unit Head Comment:');
-    doc.fontSize(9).fillColor(DARK).font('Helvetica').text(appraisal.unitHeadComment, { indent: 10 });
+  } else {
+    form.unitHeadAttributes.forEach((attr, i) => {
+      if (doc.y > 740) doc.addPage();
+      scoreRow(attr.label, uh[attr.key], attr.maxScore, i);
+    });
+
+    doc.moveDown(0.3);
+    doc.fontSize(10).fillColor(ACCENT).font('Helvetica-Bold').text(`Total Unit Head Score: ${uhTotal} / ${uhMax}`, { align: 'right' });
+
+    // Unit Head Comment
+    if (appraisal.unitHeadComment) {
+      doc.moveDown(0.5);
+      doc.fontSize(9).fillColor(MEDIUM).font('Helvetica-Bold').text('Unit Head Comment:');
+      doc.fontSize(9).fillColor(DARK).font('Helvetica').text(appraisal.unitHeadComment, { indent: 10 });
+    }
   }
 
   // HR comment — the admin's review stage, distinct from the MD's section below
@@ -196,7 +209,9 @@ async function generateAppraisalPDF(appraisalId) {
 
     doc.fontSize(9).fillColor(DARK).font('Helvetica')
       .text(`Self Rating (30% weight):   ${selfTotal} / ${selfMax}  =  ${selfPercent}%`)
-      .text(`Unit Head (50% weight):     ${uhTotal} / ${uhMax}  =  ${uhPercent}%`)
+      .text(hideUnitHead
+        ? 'Unit Head (50% weight):     not disclosed'
+        : `Unit Head (50% weight):     ${uhTotal} / ${uhMax}  =  ${uhPercent}%`)
       .text(`MD Score (20% weight):      ${appraisal.mdScore || 0} / 100  =  ${appraisal.mdScore || 0}%`);
 
     doc.moveDown(0.5);
@@ -232,7 +247,7 @@ async function generateAppraisalPDF(appraisalId) {
 // Excel — Appraisals List
 // ══════════════════════════════════════════════════════════════
 
-async function generateAppraisalsExcel(orgId) {
+async function generateAppraisalsExcel(orgId, viewerId = null) {
   const appraisals = await prisma.appraisal.findMany({
     where: { orgId },
     include: {
@@ -292,7 +307,9 @@ async function generateAppraisalsExcel(orgId) {
       reviewFrom: new Date(a.reviewPeriodFrom).toLocaleDateString('en-GB'),
       reviewTo: new Date(a.reviewPeriodTo).toLocaleDateString('en-GB'),
       selfRating: `${selfTotal}/${selfMax}`,
-      unitHead: `${uhTotal}/${uhMax}`,
+      // Same rule as the PDF: the exporter does not get to read their own
+      // unit head score out of the org sheet.
+      unitHead: viewerId && a.employeeId === viewerId ? 'not disclosed' : `${uhTotal}/${uhMax}`,
       mdScore: a.mdScore || 0,
       finalScore: a.finalScore || 0,
       grade: a.grade || '—',

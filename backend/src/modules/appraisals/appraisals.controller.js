@@ -202,12 +202,12 @@ async function getAll(req, res) {
       });
       if (me?.departmentId) {
         const scoped = await service.getDepartmentAppraisals(req.params.orgId, me.departmentId);
-        return res.json(scoped);
+        return res.json(service.redactUnitHeadForSelfList(scoped, req.user.userId));
       }
     }
 
     const appraisals = await service.getOrgAppraisals(req.params.orgId);
-    res.json(appraisals);
+    res.json(service.redactUnitHeadForSelfList(appraisals, req.user.userId));
   } catch (err) {
     console.error('Get appraisals error:', err);
     res.status(500).json({ error: 'Failed to get appraisals' });
@@ -233,7 +233,7 @@ async function getOne(req, res) {
     const unitHeadRule = await getUnitHeadReviewRule(appraisal, req.user.userId);
 
     res.json({
-      ...appraisal,
+      ...service.redactUnitHeadForSelf(appraisal, req.user.userId),
       unitHeadReview: {
         canScore: unitHeadRule.allowed,
         blockedReason: unitHeadRule.reason,
@@ -251,7 +251,7 @@ async function getOne(req, res) {
 async function getMine(req, res) {
   try {
     const appraisals = await service.getEmployeeAppraisals(req.params.orgId, req.user.userId);
-    res.json(appraisals);
+    res.json(service.redactUnitHeadForSelfList(appraisals, req.user.userId));
   } catch (err) {
     console.error('Get my appraisals error:', err);
     res.status(500).json({ error: 'Failed to get appraisals' });
