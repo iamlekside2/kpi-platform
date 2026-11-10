@@ -225,7 +225,7 @@ export default function AppraisalDetailPage() {
       else if (status === 'admin_reviewed') setActiveSection('section3');
       else setActiveSection('section1');
     } else if (isUnitHead) {
-      setActiveSection(status === 'submitted' ? 'section2' : 'section1');
+      setActiveSection(status === 'submitted' || status === 'unit_reviewed' ? 'section2' : 'section1');
     } else if (isEmployee && status === 'completed') {
       setActiveSection('result');
     } else {
@@ -360,7 +360,7 @@ export default function AppraisalDetailPage() {
       });
       setAppraisal(data);
       setShowUnitHeadGaps(false);
-      toast.success('Unit Head review saved!');
+      toast.success(data.revised ? 'Unit Head review updated!' : 'Unit Head review saved!');
     } catch (err) {
       // This used to be console.error only, so a refused save looked like a
       // dead button. One unit head could not file a review for two days.
@@ -876,17 +876,26 @@ export default function AppraisalDetailPage() {
         {/* ── SECTION 2: Unit Head Review ── */}
         {activeSection === 'section2' && canSeeSection2 && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
-            {/* Status banner */}
-            {isUnitHead && status !== 'submitted' && (
+            {/* Saved, but still theirs to change until someone downstream acts */}
+            {canEditUnitHead && status === 'unit_reviewed' && (
+              <div className="px-4 py-2.5 bg-emerald-500/[0.07] border border-emerald-500/20 rounded-lg text-xs text-emerald-300 flex items-start gap-2">
+                <Info className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                Saved and passed to HR. You can still change these scores until HR or the MD acts on this appraisal.
+              </div>
+            )}
+
+            {/* Friendlier than the rule's own wording for the common case */}
+            {isUnitHead && status === 'draft' && (
               <div className="px-4 py-2 bg-slate-800/50 border border-white/[0.06] rounded-lg text-xs text-slate-500 flex items-center gap-2">
                 <Info className="w-3.5 h-3.5" />
-                {status === 'draft' ? 'Waiting for employee to submit their self-assessment' : 'Review has already been submitted'}
+                Waiting for employee to submit their self-assessment
               </div>
             )}
 
             {/* Says why the form is read-only rather than letting someone
-                fill twelve scores and discover at Save that it is not theirs */}
-            {!canEditUnitHead && status === 'submitted' && unitHeadReview?.blockedReason && (
+                fill twelve scores and discover at Save that it is not theirs.
+                Covers the locked stages too, not just submitted. */}
+            {!canEditUnitHead && status !== 'draft' && unitHeadReview?.blockedReason && (
               <div className="mb-4 px-4 py-3 bg-amber-500/10 border border-amber-500/20 rounded-lg text-sm text-amber-400 flex items-center gap-2">
                 <Info className="w-3.5 h-3.5 shrink-0" />
                 {unitHeadReview.blockedReason}
@@ -988,7 +997,7 @@ export default function AppraisalDetailPage() {
               {canEditUnitHead && (
                 <div className="mt-3 flex flex-wrap gap-2">
                   <Button onClick={handleUnitHeadSave} disabled={saving}>
-                    {saving ? 'Saving...' : 'Save Unit Head Review'}
+                    {saving ? 'Saving...' : status === 'unit_reviewed' ? 'Update Unit Head Review' : 'Save Unit Head Review'}
                   </Button>
                   {canSendBack && (
                     <Button variant="secondary" onClick={() => setShowSendBack(true)} disabled={saving}>

@@ -351,6 +351,10 @@ async function submit(req, res) {
 // only found out at Save, while the MD — the one person entitled to score a
 // lead — was given it read-only and could not finish it at all. One function
 // now answers the question, and both the page and the PATCH ask it.
+// Editable by the unit head while it is theirs and while nobody downstream
+// has acted: HR's review (admin_reviewed) and the MD's (completed) close it.
+const UNIT_HEAD_EDITABLE_STATUSES = ['submitted', 'unit_reviewed'];
+
 async function getUnitHeadReviewRule(appraisal, userId) {
   const [role, me, them] = await Promise.all([
     getUserRole(userId, appraisal.orgId),
@@ -387,8 +391,21 @@ async function getUnitHeadReviewRule(appraisal, userId) {
     }
   }
 
-  if (appraisal.status !== 'submitted') {
-    return deny('Appraisal must be submitted before unit head review');
+  // A unit head can still revise their scores after saving them — up to the
+  // point HR or the MD has acted on them. After that the review is part of a
+  // decision someone else has already made on it, so it is locked and has to
+  // be sent back instead.
+  if (!UNIT_HEAD_EDITABLE_STATUSES.includes(appraisal.status)) {
+    if (appraisal.status === 'draft') {
+      return deny('Appraisal must be submitted before unit head review');
+    }
+    if (appraisal.status === 'admin_reviewed') {
+      return deny('HR has already reviewed this, so the scores are locked. Ask HR to send it back if they need changing.');
+    }
+    if (appraisal.status === 'completed') {
+      return deny('This appraisal is complete, so the scores can no longer be changed.');
+    }
+    return deny('This appraisal is not open for unit head review');
   }
 
   return { allowed: true, reason: null, reviewedBy, employeeIsLead };
@@ -417,10 +434,22 @@ async function updateUnitHead(req, res) {
       });
     }
 
+    // Only the first save moves the stage on. A later revision must not email
+    // HR again as though it had just arrived, nor log a submitted ->
+    // unit_reviewed transition that already happened; it is an edit.
+    const isFirstReview = appraisal.status === 'submitted';
+
     const updated = await service.updateUnitHeadReview(req.params.id, req.user.userId, req.body);
-    notifyAppraisalReviewed(updated, 'unit_head').catch(() => {});
-    auditAppraisalStatusChanged(updated, 'submitted', 'unit_reviewed', req.user.userId).catch(() => {});
-    res.json(updated);
+    if (isFirstReview) {
+      notifyAppraisalReviewed(updated, 'unit_head').catch(() => {});
+      auditAppraisalStatusChanged(updated, 'submitted', 'unit_reviewed', req.user.userId).catch(() => {});
+    } else {
+      auditAppraisalUpdated(updated, {
+        unitHeadScores: req.body.unitHeadScores,
+        unitHeadComment: req.body.unitHeadComment,
+      }, req.user.userId).catch(() => {});
+    }
+    res.json({ ...updated, revised: !isFirstReview });
   } catch (err) {
     console.error('Unit head review error:', err);
     res.status(500).json({ error: 'Failed to update unit head review' });
