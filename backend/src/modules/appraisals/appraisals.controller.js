@@ -356,7 +356,7 @@ async function submit(req, res) {
 const UNIT_HEAD_EDITABLE_STATUSES = ['submitted', 'unit_reviewed'];
 
 async function getUnitHeadReviewRule(appraisal, userId) {
-  const [role, me, them] = await Promise.all([
+  const [role, me, them, mdCount] = await Promise.all([
     getUserRole(userId, appraisal.orgId),
     prisma.orgMember.findUnique({
       where: { userId_orgId: { userId, orgId: appraisal.orgId } },
@@ -366,7 +366,9 @@ async function getUnitHeadReviewRule(appraisal, userId) {
       where: { userId_orgId: { userId: appraisal.employeeId, orgId: appraisal.orgId } },
       select: { departmentId: true, role: true },
     }),
+    prisma.orgMember.count({ where: { orgId: appraisal.orgId, role: 'md' } }),
   ]);
+  const orgHasMd = mdCount > 0;
 
   // A unit head has nobody above them inside their own department, so this
   // stage belongs to the MD. An admin stands in where there is no MD.
@@ -379,14 +381,31 @@ async function getUnitHeadReviewRule(appraisal, userId) {
   if (!role) return deny('Not a member of this organisation');
 
   if (employeeIsLead) {
+    // The MD's stage. An admin stands in only where the org has no MD at
+    // all — otherwise any admin could score a unit head in a department
+    // they have nothing to do with.
     if (role !== 'md' && role !== 'admin') {
       return deny("A unit head's own appraisal is reviewed by the MD");
+    }
+    if (role === 'admin' && orgHasMd) {
+      return deny("A unit head's own appraisal is the MD's to score, not an admin's");
     }
   } else {
     if (role !== 'lead' && role !== 'admin') {
       return deny('Only unit heads can score appraisals');
     }
-    if (role === 'lead' && me?.departmentId && me.departmentId !== them?.departmentId) {
+    // Both leads AND admins are held to their own department here. This
+    // check used to read `role === 'lead' && me?.departmentId && ...`, which
+    // let two people straight past it: an admin, never checked at all, and a
+    // lead with no department, whose own blank value short-circuited it. An
+    // HR admin could score — and overwrite — the support unit head's review.
+    if (!me?.departmentId) {
+      return deny('You are not assigned to a department, so you cannot score anyone. Ask an admin to set yours.');
+    }
+    if (!them?.departmentId) {
+      return deny('This employee is not assigned to a department, so nobody can be their unit head yet');
+    }
+    if (me.departmentId !== them.departmentId) {
       return deny('You can only review your own department');
     }
   }
