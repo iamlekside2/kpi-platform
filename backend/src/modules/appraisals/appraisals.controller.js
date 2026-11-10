@@ -408,6 +408,22 @@ async function getUnitHeadReviewRule(appraisal, userId) {
     if (me.departmentId !== them.departmentId) {
       return deny('You can only review your own department');
     }
+    // An admin stands in for a unit head; they do not sit above one. Where
+    // the department has its own head, the review is that person's to write
+    // and to change, even though the admin is in the department too —
+    // otherwise an admin could quietly rewrite the scores and the comment
+    // their unit head had already signed off. Where the department has no
+    // head at all, the admin is the only person who can score it, so they
+    // still can.
+    if (role === 'admin') {
+      const head = await prisma.orgMember.findFirst({
+        where: { orgId: appraisal.orgId, departmentId: them.departmentId, role: 'lead' },
+        select: { user: { select: { name: true } } },
+      });
+      if (head) {
+        return deny(`${head.user.name} is the unit head here, so this review is theirs to write. Ask them to change it, or send the appraisal back.`);
+      }
+    }
   }
 
   // A unit head can still revise their scores after saving them — up to the
