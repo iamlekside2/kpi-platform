@@ -323,6 +323,51 @@ function redactUnitHeadForSelfList(appraisals, viewerId, viewerRole = null) {
   return appraisals.map((a) => redactUnitHeadForSelf(a, viewerId, viewerRole));
 }
 
+// ── Keeping a draft's question set with the employee ──
+// The department is copied onto the appraisal when the cycle is raised,
+// because the form somebody fills — and the paper form it mirrors — is
+// chosen by the department they sit in. Move them afterwards and that copy
+// goes stale: a man raised under tech and then moved to Support was still
+// being handed product-development questions.
+//
+// A draft has not been filled in or reviewed by anybody, so its form is
+// still only a choice and realigning it costs nothing. Anything already
+// submitted is left alone: those answers were written under the department
+// it was raised in, and that is the record of the period. If a move needs
+// to count after that, raise a fresh one.
+//
+// This runs on read, so rows that drifted before it existed repair
+// themselves, and it writes only when something has actually moved.
+async function realignDraftDepartments(appraisals) {
+  const list = Array.isArray(appraisals) ? appraisals : [appraisals];
+  const drafts = list.filter((a) => a && a.status === 'draft');
+  if (drafts.length === 0) return appraisals;
+
+  const members = await prisma.orgMember.findMany({
+    where: {
+      orgId: { in: [...new Set(drafts.map((a) => a.orgId))] },
+      userId: { in: [...new Set(drafts.map((a) => a.employeeId))] },
+    },
+    select: { orgId: true, userId: true, department: { select: { slug: true } } },
+  });
+  const slugOf = new Map(
+    members.map((m) => [`${m.orgId}:${m.userId}`, m.department?.slug || 'general'])
+  );
+
+  const moved = new Map(); // new slug → the appraisals that now belong to it
+  for (const a of drafts) {
+    const slug = slugOf.get(`${a.orgId}:${a.employeeId}`);
+    if (!slug || slug === a.department) continue;
+    a.department = slug;
+    if (!moved.has(slug)) moved.set(slug, []);
+    moved.get(slug).push(a.id);
+  }
+  for (const [slug, ids] of moved) {
+    await prisma.appraisal.updateMany({ where: { id: { in: ids } }, data: { department: slug } });
+  }
+  return appraisals;
+}
+
 // ── Get appraisals for an org ──
 // A unit head reviews their own department, so that is what they see.
 // A lead with no department falls back to the whole org, as elsewhere.
@@ -331,48 +376,48 @@ async function getDepartmentAppraisals(orgId, departmentId) {
     where: { orgId, departmentId },
     select: { userId: true },
   });
-  return prisma.appraisal.findMany({
+  return realignDraftDepartments(await prisma.appraisal.findMany({
     where: { orgId, employeeId: { in: members.map((m) => m.userId) } },
     include: {
       employee: { select: { id: true, name: true, email: true } },
       reviewer: { select: { id: true, name: true, email: true } },
     },
     orderBy: { createdAt: 'desc' },
-  });
+  }));
 }
 
 async function getOrgAppraisals(orgId) {
-  return prisma.appraisal.findMany({
+  return realignDraftDepartments(await prisma.appraisal.findMany({
     where: { orgId },
     include: {
       employee: { select: { id: true, name: true, email: true } },
       reviewer: { select: { id: true, name: true, email: true } },
     },
     orderBy: { createdAt: 'desc' },
-  });
+  }));
 }
 
 // ── Get single appraisal ──
 async function getAppraisalById(id) {
-  return prisma.appraisal.findUnique({
+  return realignDraftDepartments(await prisma.appraisal.findUnique({
     where: { id },
     include: {
       employee: { select: { id: true, name: true, email: true } },
       reviewer: { select: { id: true, name: true, email: true } },
     },
-  });
+  }));
 }
 
 // ── Get appraisals for a specific employee ──
 async function getEmployeeAppraisals(orgId, employeeId) {
-  return prisma.appraisal.findMany({
+  return realignDraftDepartments(await prisma.appraisal.findMany({
     where: { orgId, employeeId },
     include: {
       employee: { select: { id: true, name: true, email: true } },
       reviewer: { select: { id: true, name: true, email: true } },
     },
     orderBy: { createdAt: 'desc' },
-  });
+  }));
 }
 
 // ── Update appraisal (employee filling in their sections) ──
